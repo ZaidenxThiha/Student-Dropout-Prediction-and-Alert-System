@@ -31,7 +31,15 @@ def main() -> None:
 
     # Risk distribution
     st.subheader("Risk Level Distribution")
-    st.bar_chart(df["risk_level"].value_counts())
+    # Convert to object dtype to avoid pandas StringDtype Arrow marshalling issues on Streamlit Cloud.
+    counts = (
+        df["risk_level"]
+        .astype("object")
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "risk_level", "risk_level": "count"})
+    )
+    st.bar_chart(counts, x="risk_level", y="count")
 
     # Student search
     st.subheader("Search by Student ID")
