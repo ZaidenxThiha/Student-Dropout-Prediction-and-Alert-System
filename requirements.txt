@@ -1,5 +1,5 @@
 pandas==1.5.3
-numpy
+numpy==1.24.4
 matplotlib
 seaborn
 scikit-learn
@@ -8,7 +8,7 @@ jupyter
 xgboost
 imbalanced-learn
 shap
-streamlit
+streamlit==1.25.0
 pyarrow==11.0.0
 # Pin Altair to v4 for Streamlit 1.19 compatibility
 altair==4.2.2
