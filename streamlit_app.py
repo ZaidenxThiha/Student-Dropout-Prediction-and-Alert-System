@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-import altair as alt
+import matplotlib.pyplot as plt
 from pathlib import Path
 
 
@@ -32,25 +32,21 @@ def main() -> None:
 
     # Risk distribution
     st.subheader("Risk Level Distribution")
-    # Explicitly cast to strings and use Altair to bypass legacy dataframe marshalling issues.
+    # Use Matplotlib to avoid Streamlit's legacy dataframe marshalling issues with string dtypes.
     counts = (
         df["risk_level"]
         .astype(str)
         .value_counts()
-        .reset_index()
-        .rename(columns={"index": "risk_level", "risk_level": "count"})
+        .reindex(["High", "Medium", "Low"])
+        .fillna(0)
+        .astype(int)
     )
-    chart = (
-        alt.Chart(counts)
-        .mark_bar()
-        .encode(
-            x=alt.X("risk_level:N", sort=["High", "Medium", "Low"], title="Risk Level"),
-            y=alt.Y("count:Q", title="Students"),
-            tooltip=["risk_level", "count"],
-        )
-        .properties(height=300)
-    )
-    st.altair_chart(chart, use_container_width=True)
+    fig, ax = plt.subplots()
+    ax.bar(counts.index, counts.values, color=["#d62728", "#ffbf00", "#1f77b4"])
+    ax.set_xlabel("Risk Level")
+    ax.set_ylabel("Students")
+    ax.set_title("Students by Risk Level")
+    st.pyplot(fig, clear_figure=True)
 
     # Student search
     st.subheader("Search by Student ID")
