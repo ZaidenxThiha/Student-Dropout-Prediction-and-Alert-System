@@ -9,3 +9,5 @@ xgboost
 imbalanced-learn
 shap
 streamlit
+# Pin Altair to v4 for Streamlit 1.19 compatibility
+altair==4.2.2
