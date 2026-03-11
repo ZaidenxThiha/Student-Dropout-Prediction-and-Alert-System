@@ -24,6 +24,10 @@ def main() -> None:
         return
 
     df = load_predictions(pred_path)
+    # Cast string columns to Python objects to avoid legacy Streamlit dataframe marshalling issues.
+    string_cols = df.select_dtypes(include=["string", "object"]).columns
+    if len(string_cols):
+        df = df.astype({col: "object" for col in string_cols})
 
     # Summary metrics
     st.metric("Total Students", len(df))
