@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import altair as alt
 from pathlib import Path
 
 
@@ -31,15 +32,25 @@ def main() -> None:
 
     # Risk distribution
     st.subheader("Risk Level Distribution")
-    # Convert to object dtype to avoid pandas StringDtype Arrow marshalling issues on Streamlit Cloud.
+    # Explicitly cast to strings and use Altair to bypass legacy dataframe marshalling issues.
     counts = (
         df["risk_level"]
-        .astype("object")
+        .astype(str)
         .value_counts()
         .reset_index()
         .rename(columns={"index": "risk_level", "risk_level": "count"})
     )
-    st.bar_chart(counts, x="risk_level", y="count")
+    chart = (
+        alt.Chart(counts)
+        .mark_bar()
+        .encode(
+            x=alt.X("risk_level:N", sort=["High", "Medium", "Low"], title="Risk Level"),
+            y=alt.Y("count:Q", title="Students"),
+            tooltip=["risk_level", "count"],
+        )
+        .properties(height=300)
+    )
+    st.altair_chart(chart, use_container_width=True)
 
     # Student search
     st.subheader("Search by Student ID")
