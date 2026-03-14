@@ -1,3 +1,0 @@
-[global]
-# Use Arrow serialization; legacy path conflicts with newer pandas/pyarrow.
-dataFrameSerialization = "arrow"
