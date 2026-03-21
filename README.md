@@ -1,4 +1,4 @@
-# Student Success Prediction
+# Student Outcomes Prediction and Prevent Dropout
 
 This project combines two student-risk workflows in one repo:
 - `performance`: predicts pass/fail risk from the UCI student performance dataset
@@ -110,6 +110,32 @@ Required files:
 - `data/processed/performance/student_predictions.csv`
 - `data/processed/dropout/Student_risk_report.csv`
 - `data/processed/dropout/actionable_weekly_risk_report.csv`
+
+Team Member Contributions
+
+Theworkinthis project has been divided according to the responsibilities of each team member.
+
+Thiha Aung
+
+Thiha Aung is responsible for the following tasks:
+- Development of the student performance prediction model.
+- Data preprocessing related to performance prediction.
+- Model implementation and testing for academic performance classification.
+- Contribution to report writing and project documentation.
+- 
+Thin Lei Sandi
+
+Thin Lei Sandi is responsible for the following tasks:
+- Development of the student dropout prediction model.
+- Data preprocessing related to dropout prediction.
+- Model implementation and testing for dropout risk classification.
+- Contribution to report writing and project documentation.
+Shared Responsibilities
+- Project planning and discussion.
+- System concept and overall design.
+- Streamlit dashboard integration.
+- Midterm report preparation.
+= Review of implementation progress
 
 ## Notes
 
