@@ -10,6 +10,9 @@ import pandas as pd
 from joblib import load
 
 
+DROPOUT_THRESHOLD = 0.5
+
+
 def load_model(model_path: Optional[Path] = None):
     """Load the trained performance pipeline."""
     if model_path is None:
@@ -23,15 +26,27 @@ def load_model(model_path: Optional[Path] = None):
 
 
 def load_dropout_model(model_path: Optional[Path] = None):
-    """Load the trained dropout model."""
+    """Load the trained dropout XGBoost model."""
     if model_path is None:
         model_path = (
             Path(__file__).resolve().parent.parent
             / "models"
             / "dropout"
-            / "rf_dropout_model.joblib"
+            / "oula_ews_model.pkl"
         )
     return load(model_path)
+
+
+def load_dropout_features(path: Optional[Path] = None) -> list[str]:
+    """Load the ordered dropout feature list expected by the saved model."""
+    if path is None:
+        path = (
+            Path(__file__).resolve().parent.parent
+            / "models"
+            / "dropout"
+            / "model_features.pkl"
+        )
+    return load(path)
 
 
 def risk_level(prob_fail: float) -> str:
@@ -70,20 +85,26 @@ def derive_performance_risk_factors(row: pd.Series) -> str:
 
 
 def derive_dropout_risk_factors(row: pd.Series) -> str:
-    """Create a compact explanation of dropout risk signals."""
+    """Create a compact explanation of dropout risk signals for the new XGBoost feature set."""
     factors = []
 
-    if row.get("sum_click", 0.0) < -0.2:
-        factors.append("Low Online Engagement")
-    if row.get("date_registration", 0.0) > 0.1:
-        factors.append("Late Registration")
-    if row.get("studied_credits", 0.0) > 0.5:
-        factors.append("High Course Load")
-    if row.get("num_of_prev_attempts", 0.0) > 0:
-        factors.append("Previous Failures")
+    if row.get("avg_score", 100.0) < 50:
+        factors.append("Low Early Assessment Score")
+    if row.get("total_clicks", 999999.0) < 100:
+        factors.append("Low Total Clicks")
+    if row.get("active_days", 999999.0) < 8:
+        factors.append("Low Active Days")
+    if row.get("relative_engagement", 0.0) < 0:
+        factors.append("Below-Average Engagement")
+    if row.get("avg_lateness", 0.0) > 0:
+        factors.append("Late Assessment Submission")
+    if row.get("num_of_prev_attempts", 0) > 0:
+        factors.append("Previous Attempts")
+    if row.get("studied_credits", 0) >= 90:
+        factors.append("High Study Load")
 
     if not factors:
-        return "General Risk Profile"
+        return "Strong Early Engagement Profile"
     return " | ".join(factors[:3])
 
 
@@ -108,20 +129,30 @@ def predict_dropout_students(
     df: pd.DataFrame,
     student_ids: Optional[pd.Series] = None,
     model=None,
-    threshold: float = 0.4,
+    threshold: float = DROPOUT_THRESHOLD,
+    features: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Predict dropout risk and create a full dropout risk report."""
     if model is None:
         model = load_dropout_model()
+    if features is None:
+        features = load_dropout_features()
 
-    risk_probabilities = model.predict_proba(df)[:, 1]
+    missing_features = [feature for feature in features if feature not in df.columns]
+    if missing_features:
+        raise ValueError(f"Missing required dropout features: {missing_features}")
+
+    feature_df = df[features].copy()
+    risk_probabilities = model.predict_proba(feature_df)[:, 1]
     predictions = (risk_probabilities >= threshold).astype(int)
 
     result = df.copy().reset_index(drop=True)
-    if student_ids is None:
-        result.insert(0, "Student_ID", range(1, len(result) + 1))
+    if student_ids is not None:
+        result.insert(0, "Student_ID", pd.Series(student_ids).reset_index(drop=True))
+    elif "id_student" in result.columns:
+        result.insert(0, "Student_ID", result.pop("id_student"))
     else:
-        result["Student_ID"] = pd.Series(student_ids).reset_index(drop=True)
+        result.insert(0, "Student_ID", range(1, len(result) + 1))
 
     result["Risk_Probability_Value"] = risk_probabilities
     result["Risk_Probability"] = (result["Risk_Probability_Value"] * 100).round(1).astype(str) + "%"
@@ -172,8 +203,15 @@ def load_combined_performance_data(base_dir: Path) -> pd.DataFrame:
 
 
 def load_dropout_inputs(base_dir: Path) -> tuple[pd.DataFrame, pd.Series]:
-    """Load dropout feature data and student ids."""
+    """Load dropout data and student ids for the new XGBoost pipeline."""
     processed_dir = base_dir / "data" / "processed" / "dropout"
+    preprocessed_path = processed_dir / "dropout_preprocessed.csv"
+    if preprocessed_path.exists():
+        df = pd.read_csv(preprocessed_path)
+        student_ids = df["id_student"] if "id_student" in df.columns else pd.Series(range(1, len(df) + 1))
+        return df, student_ids
+
+    # Fallback to the older exported test-set files if the full preprocessed dataset is unavailable.
     feature_df = pd.read_csv(processed_dir / "X_test.csv")
     student_ids = pd.read_csv(processed_dir / "student_ids.csv").squeeze()
     return feature_df, student_ids
@@ -199,8 +237,8 @@ def export_dropout_predictions(base_dir: Path) -> tuple[Path, Path]:
     report_path = processed_dir / "Student_risk_report.csv"
     actionable_path = processed_dir / "actionable_weekly_risk_report.csv"
 
-    feature_df, student_ids = load_dropout_inputs(base_dir)
-    report_df = predict_dropout_students(feature_df, student_ids=student_ids)
+    data_df, student_ids = load_dropout_inputs(base_dir)
+    report_df = predict_dropout_students(data_df, student_ids=student_ids)
     actionable_df = build_actionable_dropout_report(report_df)
 
     save_predictions(report_df, report_path)
