@@ -1,148 +1,314 @@
-# Student Outcomes Prediction and Prevent Dropout
+# Student Risk Monitoring System
 
-This project combines two student-risk workflows in one repo:
-- `performance`: predicts pass/fail risk from the UCI student performance dataset
-- `dropout`: predicts dropout risk and intervention priority from the OULA dataset
+This project contains two independent student risk workflows and a single Streamlit dashboard that presents their outputs together:
 
-Both outputs are surfaced in a single Streamlit dashboard.
+- Academic failure model using the UCI Student Performance dataset
+- Dropout risk model using the OULA dataset
 
-## Project Structure
+These are not a single combined prediction pipeline. The datasets, model inputs, and student records are separate. The dashboard provides a unified monitoring view only.
+
+## What the Project Does
+
+The system supports three dashboard views:
+
+- `Academic Risk`: pass/fail risk scores, risk levels, and academic risk factors
+- `Dropout Risk`: dropout probabilities, intervention status, and engagement risk factors
+- `Parent Alerts`: one combined message table created by concatenating academic alerts and dropout alerts without merging student datasets
+
+## Repository Layout
 
 ```text
-testITprojc/
+Student Dropout Prediction and Alert System/
 ├── data/
 │   ├── raw/
-│   │   ├── uci/                  # UCI source files for performance model
-│   │   └── oula/                 # OULA source files for dropout model
+│   │   ├── uci/
+│   │   │   ├── student-mat.csv
+│   │   │   └── student-por.csv
+│   │   └── oula/
+│   │       ├── assessments.csv
+│   │       ├── courses.csv
+│   │       ├── studentAssessment.csv
+│   │       ├── studentInfo.csv
+│   │       ├── studentRegistration.csv
+│   │       ├── studentVle.csv
+│   │       └── vle.csv
 │   └── processed/
-│       ├── performance/          # cleaned UCI data + performance predictions
-│       └── dropout/              # dropout reports, test splits, processed OULA data
+│       ├── performance/
+│       │   ├── student_all_cleaned.csv
+│       │   ├── student_mat_cleaned.csv
+│       │   ├── student_por_cleaned.csv
+│       │   ├── student_predictions.csv
+│       │   └── student_predictions_holdout.csv
+│       └── dropout/
+│           ├── dropout_preprocessed.csv
+│           ├── engineered_features.csv
+│           ├── X_test.csv
+│           ├── y_test.csv
+│           ├── student_ids.csv
+│           ├── Student_risk_report.csv
+│           └── actionable_weekly_risk_report.csv
 ├── models/
-│   ├── performance/              # pass/fail model artifacts
-│   └── dropout/                  # dropout model artifacts
+│   ├── performance/
+│   │   └── pass_classifier_rf.joblib
+│   └── dropout/
+│       ├── oula_ews_model.pkl
+│       └── model_features.pkl
 ├── notebooks/
-│   ├── performance/              # preprocess, train, evaluate, report
-│   └── dropout/                  # preprocess, train, evaluate, report
+│   ├── performance/
+│   │   ├── preprocess.ipynb
+│   │   ├── train.ipynb
+│   │   ├── evaluate.ipynb
+│   │   └── report.ipynb
+│   └── dropout/
+│       ├── preprocess.ipynb
+│       ├── train.ipynb
+│       ├── evaluate.ipynb
+│       └── report.ipynb
 ├── src/
-│   └── predict.py                # performance prediction utility
-├── streamlit_app.py              # unified dashboard
-└── requirements.txt
+│   └── predict.py
+├── streamlit_app.py
+├── requirements.txt
+└── README.md
 ```
 
-## Datasets
+## Models
 
-### UCI Performance
-- Raw files live in `data/raw/uci/`
-- Main processed outputs live in `data/processed/performance/`
-- Main model artifact: `models/performance/pass_classifier_rf.joblib`
+### 1. Academic Failure Model
 
-### OULA Dropout
-- Raw files live in `data/raw/oula/`
-- Main processed outputs live in `data/processed/dropout/`
-- Main model artifact: `models/dropout/rf_dropout_model.joblib`
+Dataset:
 
-## Setup
+- `data/raw/uci/student-mat.csv`
+- `data/raw/uci/student-por.csv`
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+Primary artifact:
 
-## Notebooks
-
-### Performance notebooks
-- `notebooks/performance/preprocess.ipynb`
-- `notebooks/performance/train.ipynb`
-- `notebooks/performance/evaluate.ipynb` — model evaluation and performance metrics
-- `notebooks/performance/report.ipynb` — risk-student report with primary risk factors
-
-### Dropout notebooks
-- `notebooks/dropout/preprocess.ipynb`
-- `notebooks/dropout/train.ipynb`
-- `notebooks/dropout/evaluate.ipynb`
-- `notebooks/dropout/report.ipynb`
-
-Launch notebooks with:
-
-```bash
-
-source .venv/bin/activate
-jupyter notebook
-```
-
-## Prediction Workflow
-
-### Performance model
-Generate pass/fail predictions from the processed UCI dataset:
-
-```bash
-source .venv/bin/activate
-python src/predict.py
-```
-
-This writes:
-- `data/processed/performance/student_predictions.csv`
-
-Expected inputs:
-- `data/processed/performance/student_all_cleaned.csv`
 - `models/performance/pass_classifier_rf.joblib`
 
-### Dropout model
-The Streamlit dashboard reads existing dropout outputs from:
+Generated output used by the dashboard:
+
+- `data/processed/performance/student_predictions.csv`
+
+Important output fields:
+
+- `student_id`
+- `risk_score`
+- `risk_level`
+- `Primary_Risk_Factors`
+
+### 2. Dropout Risk Model
+
+Dataset:
+
+- `data/raw/oula/studentInfo.csv`
+- `data/raw/oula/studentVle.csv`
+- `data/raw/oula/studentAssessment.csv`
+- `data/raw/oula/assessments.csv`
+
+Primary artifacts:
+
+- `models/dropout/oula_ews_model.pkl`
+- `models/dropout/model_features.pkl`
+
+Generated outputs used by the dashboard:
+
 - `data/processed/dropout/Student_risk_report.csv`
 - `data/processed/dropout/actionable_weekly_risk_report.csv`
 
-## Streamlit Dashboard
+Important output fields:
 
-Run the combined dashboard:
+- `Student_ID`
+- `Risk_Probability_Value`
+- `Risk_Probability`
+- `Primary_Risk_Factors`
+- `Intervention_Status`
+
+## Dashboard
+
+Run the dashboard with:
 
 ```bash
 source .venv/bin/activate
 streamlit run streamlit_app.py
 ```
 
-The dashboard has two tabs:
-- `Pass/Fail Model`
-- `Dropout Prevention Model`
+The app uses:
 
-Required files:
+- `page_title = "Student Risk Monitoring System"`
+- wide layout
+- three tabs:
+  - `Academic Risk`
+  - `Dropout Risk`
+  - `Parent Alerts`
+
+### Parent Alerts Design
+
+The `Parent Alerts` tab is a unified message view, not a merged student dataset.
+
+It works by:
+
+1. Loading the academic prediction output
+2. Loading the dropout prediction output
+3. Converting both outputs into the same alert structure
+4. Concatenating them into one dataframe
+
+Shared alert columns:
+
+- `Student_ID`
+- `Alert_Type`
+- `Risk_Value`
+- `Risk_Label`
+- `Risk_Factors`
+- `Parent_Message`
+
+Important:
+
+- The academic and dropout datasets are not merged by student
+- A row in the parent alerts table comes from one model only
+- The same `Student_ID` value across sources should not be treated as the same person unless verified outside this app
+
+## Setup
+
+Create and activate a virtual environment:
+
+```bash
+brew install python
+python3 --version
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Run the Project
+
+If you are starting from a clean machine on macOS:
+
+```bash
+brew install python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python src/predict.py --task all
+streamlit run streamlit_app.py
+```
+
+This will:
+
+- install Python
+- create a virtual environment
+- install project dependencies
+- generate the latest performance and dropout report CSV files
+- launch the Streamlit dashboard
+
+Core dependencies are listed in `requirements.txt`, including:
+
+- `pandas`
+- `scikit-learn`
+- `xgboost`
+- `shap`
+- `streamlit`
+- `joblib`
+
+## Notebook Workflow
+
+Launch notebooks with:
+
+```bash
+source .venv/bin/activate
+jupyter notebook
+```
+
+### Performance notebooks
+
+- `notebooks/performance/preprocess.ipynb`
+- `notebooks/performance/train.ipynb`
+- `notebooks/performance/evaluate.ipynb`
+- `notebooks/performance/report.ipynb`
+
+### Dropout notebooks
+
+- `notebooks/dropout/preprocess.ipynb`
+- `notebooks/dropout/train.ipynb`
+- `notebooks/dropout/evaluate.ipynb`
+- `notebooks/dropout/report.ipynb`
+
+The dropout notebooks now use repo-safe paths based on `Path.cwd()` and resolve correctly when run from `notebooks/dropout`.
+
+## Prediction Export Script
+
+The main export utility is `src/predict.py`.
+
+Run all exports:
+
+```bash
+source .venv/bin/activate
+python src/predict.py --task all
+```
+
+Run only performance export:
+
+```bash
+python src/predict.py --task performance
+```
+
+Run only dropout export:
+
+```bash
+python src/predict.py --task dropout
+```
+
+Generated files:
+
+- Performance:
+  - `data/processed/performance/student_predictions.csv`
+- Dropout:
+  - `data/processed/dropout/Student_risk_report.csv`
+  - `data/processed/dropout/actionable_weekly_risk_report.csv`
+
+## Risk Logic Summary
+
+### Academic risk
+
+- Prediction target is pass/fail
+- `risk_score = 1 - P(pass)`
+- Risk buckets:
+  - `Low` if score `< 0.3`
+  - `Medium` if score `< 0.6`
+  - `High` otherwise
+
+### Dropout risk
+
+- Dropout probability is generated from the saved XGBoost model
+- Default classification threshold in `src/predict.py` is `0.5`
+- Dashboard risk bands for display:
+  - `Low` if probability `<= 0.3`
+  - `Medium` if probability `<= 0.6`
+  - `High` if probability `> 0.6`
+
+## Expected Files for the App
+
+At minimum, the Streamlit app expects:
+
 - `data/processed/performance/student_predictions.csv`
 - `data/processed/dropout/Student_risk_report.csv`
+
+Optional but supported:
+
 - `data/processed/dropout/actionable_weekly_risk_report.csv`
 
-Team Member Contributions
+If the actionable dropout report is missing, the dashboard still runs and shows an empty-state message for that section.
 
-Theworkinthis project has been divided according to the responsibilities of each team member.
+## Known Notes
 
-Thiha Aung
+- Notebook output cells may still contain old Windows-style paths until those notebooks are rerun and saved.
+- The files under `notebooks/dropout/..\\models\\*` are accidental artifacts created by earlier notebook path issues and are not part of the intended project structure.
+- The dashboard reads exported CSV outputs. It does not train models directly.
 
-Thiha Aung is responsible for the following tasks:
-- Development of the student performance prediction model.
-- Data preprocessing related to performance prediction.
-- Model implementation and testing for academic performance classification.
-- Contribution to report writing and project documentation.
-- 
-Thin Lei Sandi
+## Team Scope
 
-Thin Lei Sandi is responsible for the following tasks:
-- Development of the student dropout prediction model.
-- Data preprocessing related to dropout prediction.
-- Model implementation and testing for dropout risk classification.
-- Contribution to report writing and project documentation.
-Shared Responsibilities
-- Project planning and discussion.
-- System concept and overall design.
-- Streamlit dashboard integration.
-- Midterm report preparation.
-= Review of implementation progress
+This repository covers:
 
-## Notes
-
-- Performance target: `pass` where `1` means `G3 >= 10`
-- Performance risk score = `1 - P(pass)`
-- Performance risk buckets:
-  - `Low` for score `< 0.3`
-  - `Medium` for score `< 0.6`
-  - `High` for score `>= 0.6`
-- Dropout reports already include probability and intervention labels used by the dashboard
+- academic risk prediction
+- dropout risk prediction
+- notebook-based preprocessing and evaluation
+- export of CSV reports for dashboard use
+- Streamlit-based monitoring and parent-facing alert presentation
