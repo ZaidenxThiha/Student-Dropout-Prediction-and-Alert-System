@@ -30,6 +30,27 @@ def load_pass_fail_predictions(base_dir: Path) -> pd.DataFrame:
     return df
 
 
+def deduplicate_dropout_predictions(df: pd.DataFrame) -> pd.DataFrame:
+    if "Student_ID" not in df.columns:
+        return df
+
+    deduped = df.copy()
+    deduped["Risk_Probability_Value"] = pd.to_numeric(
+        deduped.get("Risk_Probability_Value", 0.0),
+        errors="coerce",
+    ).fillna(0.0)
+
+    # OULA can contain multiple records per learner across module presentations.
+    # Keep one dashboard row per student, preserving the highest-risk record.
+    deduped = deduped.sort_values(
+        by=["Student_ID", "Risk_Probability_Value"],
+        ascending=[True, False],
+        kind="stable",
+    )
+    deduped = deduped.drop_duplicates(subset=["Student_ID"], keep="first").reset_index(drop=True)
+    return deduped
+
+
 def load_dropout_predictions(base_dir: Path) -> pd.DataFrame:
     df = load_csv(base_dir / "data" / "processed" / "dropout" / "Student_risk_report.csv").copy()
 
@@ -47,7 +68,7 @@ def load_dropout_predictions(base_dir: Path) -> pd.DataFrame:
             bins=[-0.01, 0.3, 0.6, 1.0],
             labels=["Low", "Medium", "High"],
         )
-    return df
+    return deduplicate_dropout_predictions(df)
 
 
 def load_actionable_dropout_report(base_dir: Path) -> pd.DataFrame:
