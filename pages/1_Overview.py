@@ -9,8 +9,6 @@ import streamlit as st
 
 from src.data_loader import load_performance_data, load_dropout_data, deduplicate_dropout
 
-st.set_page_config(page_title="Overview", layout="wide")
-
 st.title("System Overview")
 st.caption("System-wide risk metrics across both academic performance and dropout models")
 

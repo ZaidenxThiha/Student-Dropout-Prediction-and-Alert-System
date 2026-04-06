@@ -6,7 +6,6 @@ import streamlit as st
 
 from src.data_loader import load_dropout_data, load_actionable_report, deduplicate_dropout, load_config
 
-st.set_page_config(page_title="Dropout Alerts", layout="wide")
 st.title("Dropout Risk Alerts")
 st.caption("Early warning flags from the first 40 days of OULA engagement data")
 

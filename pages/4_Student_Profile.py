@@ -29,7 +29,6 @@ PERFORMANCE_EXPLANATION_FEATURES = {
     "age",
 }
 
-st.set_page_config(page_title="Student Profile", layout="wide")
 st.title("Student Profile")
 st.caption("Individual risk deep-dive with SHAP explanation and peer comparison")
 

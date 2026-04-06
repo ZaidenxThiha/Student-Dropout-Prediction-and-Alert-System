@@ -12,7 +12,6 @@ from src.data_loader import (
 )
 from src.predictor import load_model, load_dropout_features, predict_single
 
-st.set_page_config(page_title="Analytics", layout="wide")
 st.title("Analytics")
 st.caption("Deep-dive analytics: risk factor analysis, course-level stats, correlations, and What-If simulator")
 

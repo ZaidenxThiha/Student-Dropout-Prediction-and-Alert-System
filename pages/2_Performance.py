@@ -8,7 +8,6 @@ import streamlit as st
 from src.data_loader import load_performance_data, get_feature_names, get_population_stats
 from src.predictor import load_model, predict_single
 
-st.set_page_config(page_title="Performance", layout="wide")
 st.title("Academic Performance Model")
 st.caption("Pass/fail predictions from UCI student performance dataset")
 

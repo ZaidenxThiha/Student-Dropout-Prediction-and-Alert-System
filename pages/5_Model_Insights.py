@@ -16,7 +16,6 @@ from src.data_loader import (
 )
 from src.predictor import load_model, load_dropout_features
 
-st.set_page_config(page_title="Model Insights", layout="wide")
 st.title("Model Insights")
 st.caption("Evaluation metrics, ROC curves, confusion matrices, and interactive threshold analysis")
 

@@ -2,10 +2,9 @@
 
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 
-from src.data_loader import load_performance_data, load_dropout_data, deduplicate_dropout, load_config
+from src.data_loader import load_config
 
 st.set_page_config(
     page_title="Student Dropout Prediction & Alert System",
@@ -13,8 +12,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Global CSS ──────────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
@@ -52,30 +51,31 @@ div[data-testid="stDataFrame"] {
     overflow: hidden !important;
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
+pages = {
+    "Dashboard": [
+        st.Page("pages/1_Overview.py", title="Overview", icon=":material/dashboard:", default=True),
+        st.Page("pages/2_Performance.py", title="Performance", icon=":material/school:"),
+        st.Page("pages/3_Dropout_Alerts.py", title="Dropout Alerts", icon=":material/notification_important:"),
+        st.Page("pages/4_Student_Profile.py", title="Student Profile", icon=":material/person_search:"),
+        st.Page("pages/5_Model_Insights.py", title="Model Insights", icon=":material/insights:"),
+        st.Page("pages/6_Analytics.py", title="Analytics", icon=":material/analytics:"),
+    ],
+}
 
-# ─── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## Student Risk System")
     st.caption("AI-powered early warning system")
     st.divider()
-    st.markdown("### Navigation")
-    st.markdown("""
-- **Overview** — KPIs & risk summary
-- **Performance** — UCI academic model
-- **Dropout Alerts** — OULA engagement
-- **Student Profile** — Individual deep-dive
-- **Model Insights** — Metrics & SHAP
-- **Analytics** — What-If & correlations
-""")
-    st.divider()
     st.markdown("### System Status")
 
-    BASE_DIR = Path(__file__).resolve().parent
-    perf_ok = (BASE_DIR / "data/processed/performance/student_predictions.csv").exists()
-    drop_ok = (BASE_DIR / "data/processed/dropout/Student_risk_report.csv").exists()
-    model_ok = (BASE_DIR / "models/dropout/dropout_xgb_optimized.joblib").exists()
+    base_dir = Path(__file__).resolve().parent
+    perf_ok = (base_dir / "data/processed/performance/student_predictions.csv").exists()
+    drop_ok = (base_dir / "data/processed/dropout/Student_risk_report.csv").exists()
+    model_ok = (base_dir / "models/dropout/dropout_xgb_optimized.joblib").exists()
 
     st.markdown(f"{'[OK]' if perf_ok else '[MISSING]'} Performance data")
     st.markdown(f"{'[OK]' if drop_ok else '[MISSING]'} Dropout data")
@@ -85,91 +85,11 @@ with st.sidebar:
     st.caption(f"Dropout threshold: **{config['dropout']['threshold']}**")
     metrics = config["dropout"].get("metrics", {})
     if metrics:
-        st.caption(f"Model — P: {metrics.get('precision','?')} | R: {metrics.get('recall','?')} | AUC: {metrics.get('auc','?')}")
+        st.caption(
+            f"Model — P: {metrics.get('precision', '?')} | "
+            f"R: {metrics.get('recall', '?')} | "
+            f"AUC: {metrics.get('auc', '?')}"
+        )
 
-
-# ─── Main Landing Page ────────────────────────────────────────────────────────
-st.title("Student Dropout Prediction & Alert System")
-st.caption("Early warning dashboard for educators — academic failure & dropout risk monitoring")
-
-st.divider()
-
-# Load data for landing metrics
-try:
-    with st.spinner("Loading data..."):
-        perf_df = load_performance_data()
-        drop_df = load_dropout_data()
-        drop_df_dedup = deduplicate_dropout(drop_df)
-except Exception as e:
-    st.error(f"Could not load data: {e}")
-    st.stop()
-
-if perf_df.empty or drop_df.empty:
-    st.warning("Some data files are missing. Run `python src/predict.py --task all` to regenerate them.")
-    st.stop()
-
-# ─── KPI Cards ───────────────────────────────────────────────────────────────
-total_students = len(drop_df_dedup) + len(perf_df)
-
-drop_high = int((drop_df_dedup["Dropout_Risk_Level"].astype(str) == "High").sum())
-drop_med  = int((drop_df_dedup["Dropout_Risk_Level"].astype(str) == "Medium").sum())
-drop_low  = int((drop_df_dedup["Dropout_Risk_Level"].astype(str) == "Low").sum())
-
-perf_high = int((perf_df["risk_level"].astype(str) == "High").sum()) if "risk_level" in perf_df.columns else 0
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Student Records", f"{total_students:,}")
-col2.metric("High Risk — Dropout",  f"{drop_high:,}", delta=f"{drop_high/max(len(drop_df_dedup),1):.0%} of cohort", delta_color="inverse")
-col3.metric("Medium Risk — Dropout", f"{drop_med:,}")
-col4.metric("High Risk — Academic",  f"{perf_high:,}", delta=f"{perf_high/max(len(perf_df),1):.0%} of cohort", delta_color="inverse")
-
-st.divider()
-
-# ─── Quick Summary Panels ─────────────────────────────────────────────────────
-col_a, col_b = st.columns(2)
-
-with col_a:
-    with st.container(border=True):
-        st.markdown("### Dropout Risk Summary")
-        st.caption(f"OULA dataset — {len(drop_df_dedup):,} unique students monitored")
-        dcol1, dcol2, dcol3 = st.columns(3)
-        dcol1.metric("High", drop_high)
-        dcol2.metric("Medium", drop_med)
-        dcol3.metric("Low", drop_low)
-
-        if "code_module" in drop_df_dedup.columns:
-            top_modules = (
-                drop_df_dedup[drop_df_dedup["Dropout_Risk_Level"].astype(str) == "High"]
-                ["code_module"].value_counts().head(3)
-            )
-            if not top_modules.empty:
-                st.caption("Top at-risk modules: " + ", ".join(f"**{m}** ({c})" for m, c in top_modules.items()))
-
-with col_b:
-    with st.container(border=True):
-        st.markdown("### Academic Risk Summary")
-        st.caption(f"UCI dataset — {len(perf_df):,} student records")
-        if "risk_level" in perf_df.columns:
-            acol1, acol2, acol3 = st.columns(3)
-            acol1.metric("High",   int((perf_df["risk_level"] == "High").sum()))
-            acol2.metric("Medium", int((perf_df["risk_level"] == "Medium").sum()))
-            acol3.metric("Low",    int((perf_df["risk_level"] == "Low").sum()))
-        if "dataset" in perf_df.columns:
-            st.caption("Courses: " + ", ".join(perf_df["dataset"].unique()))
-
-st.divider()
-
-# ─── Getting Started ──────────────────────────────────────────────────────────
-st.markdown("### Getting Started")
-st.markdown("""
-Use the **sidebar navigation** to explore the system:
-
-| Page | Description |
-|------|-------------|
-| Overview | System-wide KPIs, risk distributions, and top-risk student list |
-| Performance | Academic pass/fail predictions from UCI student data |
-| Dropout Alerts | Dropout risk flags from OULA engagement data |
-| Student Profile | Deep-dive per-student explanation with SHAP |
-| Model Insights | Confusion matrices, ROC curves, threshold tuning |
-| Analytics | Correlation heatmaps, What-If simulator, course analysis |
-""")
+navigation = st.navigation(pages, position="sidebar")
+navigation.run()
