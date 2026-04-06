@@ -58,8 +58,8 @@ def risk_level(prob_fail: float) -> str:
     return "High"
 
 
-def derive_performance_risk_factors(row: pd.Series) -> str:
-    """Create a compact explanation of major performance risk signals."""
+def _performance_factor_candidates(row: pd.Series) -> list[str]:
+    """Return heuristic academic warning signs present for the row."""
     factors = []
 
     if row.get("G2", 20) <= 9:
@@ -79,9 +79,23 @@ def derive_performance_risk_factors(row: pd.Series) -> str:
     if str(row.get("higher", "yes")).lower() == "no":
         factors.append("Low Higher-Education Intent")
 
+    return factors
+
+
+def derive_performance_risk_factors(row: pd.Series) -> str:
+    """Create a compact explanation aligned with the model risk band."""
+    factors = _performance_factor_candidates(row)
+    score = float(row.get("risk_score", 0.0) or 0.0)
+    level = str(row.get("risk_level", risk_level(score))).strip().title()
+
+    if level == "Low":
+        return "No Major Academic Risk Factors"
+
     if not factors:
-        return "General Academic Risk Profile"
-    return " | ".join(factors[:3])
+        return "Moderate Academic Risk Pattern" if level == "Medium" else "Elevated Academic Risk Pattern"
+
+    max_factors = 2 if level == "Medium" else 3
+    return " | ".join(factors[:max_factors])
 
 
 def derive_dropout_risk_factors(row: pd.Series) -> str:

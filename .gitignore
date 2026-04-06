@@ -1,1 +1,23 @@
-data/raw/oula/studentVle.csv
+# Raw source data — too large for git
+data/raw/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
+.venv/
+.env
+
+# OS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local Claude settings
+.claude/settings.local.json
