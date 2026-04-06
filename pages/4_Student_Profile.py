@@ -287,7 +287,7 @@ with st.container(border=True):
             "Message (editable before sending)",
             value=message,
             height=380,
-            key="parent_msg",
+            key=f"parent_msg_{dataset_choice}_{selected_id}",
         )
         st.download_button(
             "Download as Text File",
@@ -302,7 +302,7 @@ with st.container(border=True):
 st.divider()
 with st.container(border=True):
     st.markdown("#### Similar Students (Nearest Neighbours)")
-    numeric_cols = [f for f in feat_names if f in preprocessed.columns]
+    numeric_cols = [f for f in feat_names if f in preprocessed.columns and pd.api.types.is_numeric_dtype(preprocessed[f])]
     if numeric_cols and len(preprocessed) > 5:
         try:
             feat_mat = preprocessed[numeric_cols].fillna(0).values
@@ -315,10 +315,12 @@ with st.container(border=True):
                 _, indices = knn.kneighbors(student_numeric)
                 neighbours = preprocessed.iloc[indices[0][1:6]]
 
-                show_cols = [c for c in [id_col if id_col in neighbours.columns else None,
-                                          "code_module", "final_result", "total_clicks",
-                                          "active_days", "avg_score"] if c and c in neighbours.columns]
-                if show_cols:
+                if model_type == "dropout":
+                    candidate_cols = [id_col, "code_module", "final_result", "total_clicks", "active_days", "avg_score"]
+                else:
+                    candidate_cols = [id_col, "G1", "G2", "failures", "absences", "studytime", risk_col, prob_col]
+                show_cols = [c for c in candidate_cols if c and c in neighbours.columns]
+                if len(show_cols) > 1:
                     st.dataframe(neighbours[show_cols], hide_index=True, use_container_width=True)
                 else:
                     st.dataframe(neighbours[numeric_cols], hide_index=True, use_container_width=True)
