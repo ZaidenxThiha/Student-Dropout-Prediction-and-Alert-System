@@ -74,7 +74,7 @@ with LEFT:
     if show_academic:
         ak1, ak2, ak3 = st.columns(3)
         ak1.metric("Total Students", f"{len(perf_filt):,}")
-        ak2.metric("High Risk", f"{perf_high:,}", delta=f"{perf_high/max(len(perf_filt),1):.0%}", delta_color="inverse")
+        ak2.metric("High Risk", f"{perf_high:,}")
         ak3.metric("Medium Risk", f"{perf_med:,}")
     else:
         st.caption("Hidden by dataset filter")
@@ -84,7 +84,7 @@ with RIGHT:
     if show_dropout:
         dk1, dk2, dk3 = st.columns(3)
         dk1.metric("Total Students", f"{len(drop_filt):,}")
-        dk2.metric("High Risk", f"{drop_high:,}", delta=f"{drop_high/max(len(drop_filt),1):.0%}", delta_color="inverse")
+        dk2.metric("High Risk", f"{drop_high:,}")
         dk3.metric("Medium Risk", f"{drop_med:,}")
     else:
         st.caption("Hidden by dataset filter")
