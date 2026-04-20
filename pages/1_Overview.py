@@ -192,7 +192,7 @@ with r3_right:
                 color_discrete_sequence=["#6366f1"],
                 labels={"Risk_Probability_Value": "Dropout Probability"},
             )
-            fig_h2.update_layout(margin=dict(t=36, b=10, l=10, r=10), height=320,
+            fig_h2.update_layout(margin=dict(t=72, b=20, l=10, r=10), height=380,
                                  yaxis_title="Count",
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_h2, use_container_width=True)
