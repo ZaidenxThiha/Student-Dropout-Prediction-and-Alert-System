@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from sklearn.metrics import precision_score, recall_score
 
 from src.data_loader import load_performance_data, get_feature_names, get_population_stats
 from src.predictor import load_model, predict_single
@@ -21,12 +22,22 @@ if df.empty:
 
 # ─── Summary Metrics ──────────────────────────────────────────────────────────
 risk_col = "risk_level" if "risk_level" in df.columns else None
+perf_recall = None
+perf_precision = None
+if {"pass", "predicted_outcome"}.issubset(df.columns):
+    actual_fail = (df["pass"].astype(int) == 0).astype(int)
+    pred_fail = df["predicted_outcome"].astype(str).str.lower().eq("fail").astype(int)
+    perf_recall = recall_score(actual_fail, pred_fail, zero_division=0)
+    perf_precision = precision_score(actual_fail, pred_fail, zero_division=0)
+
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Total Students", f"{len(df):,}")
+m1.metric("Total Monitored", f"{len(df):,}")
 if risk_col:
     m2.metric("High Risk", int((df[risk_col] == "High").sum()))
-    m3.metric("Medium Risk", int((df[risk_col] == "Medium").sum()))
-    m4.metric("Low Risk", int((df[risk_col] == "Low").sum()))
+if perf_recall is not None:
+    m3.metric("Model Recall", f"{perf_recall:.1%}")
+if perf_precision is not None:
+    m4.metric("Model Precision", f"{perf_precision:.1%}")
 
 # ─── Charts ───────────────────────────────────────────────────────────────────
 st.divider()

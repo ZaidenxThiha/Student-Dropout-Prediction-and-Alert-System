@@ -23,14 +23,12 @@ drop_df = deduplicate_dropout(drop_raw)
 threshold = config["dropout"].get("threshold", 0.36)
 metrics = config["dropout"].get("metrics", {})
 
-# ─── Alert Banner ─────────────────────────────────────────────────────────────
 high_risk_count = int((drop_df["Dropout_Risk_Level"].astype(str) == "High").sum())
-st.error(f"**{high_risk_count} students** flagged as HIGH RISK from first 40 days of engagement data")
 
 # ─── KPI Cards ────────────────────────────────────────────────────────────────
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total Monitored", f"{len(drop_df):,}")
-k2.metric("High Risk", f"{high_risk_count:,}", delta=f"{high_risk_count/max(len(drop_df),1):.0%}", delta_color="inverse")
+k2.metric("High Risk", f"{high_risk_count:,}")
 k3.metric("Model Recall", f"{metrics.get('recall', 0.827):.1%}")
 k4.metric("Model Precision", f"{metrics.get('precision', 0.727):.1%}")
 
@@ -181,25 +179,38 @@ with c5:
 
 with c6:
     with st.container(border=True):
-        st.markdown("#### Module → Risk → Intervention Flow")
-        flow_cols = [c for c in ["code_module", "Dropout_Risk_Level", "Intervention_Status"]
-                     if c in filtered.columns]
-        if len(flow_cols) >= 2 and not filtered.empty:
-            flow_df = filtered[flow_cols].copy().astype(str)
-            risk_numeric = flow_df["Dropout_Risk_Level"].map(
-                {"Low": 0, "Medium": 1, "High": 2}
-            ).fillna(0) if "Dropout_Risk_Level" in flow_df.columns else 0
-            fig6 = px.parallel_categories(
-                flow_df, dimensions=flow_cols,
-                color=risk_numeric,
-                color_continuous_scale=[[0, "#16a34a"], [0.5, "#f59e0b"], [1, "#dc2626"]],
+        st.markdown("#### Cumulative Dropouts Captured vs Students Reached")
+        st.caption("If we intervene on the top N% highest-risk students, what share of actual dropouts do we catch?")
+        needed = {"Risk_Probability_Value", "target"}
+        if needed.issubset(filtered.columns) and not filtered.empty and filtered["target"].sum() > 0:
+            gains = filtered[["Risk_Probability_Value", "target"]].copy()
+            gains["target"] = pd.to_numeric(gains["target"], errors="coerce").fillna(0).astype(int)
+            gains = gains.sort_values("Risk_Probability_Value", ascending=False).reset_index(drop=True)
+            n = len(gains)
+            total_pos = int(gains["target"].sum())
+            gains["pct_students"] = (gains.index + 1) / n
+            gains["pct_dropouts"] = gains["target"].cumsum() / total_pos
+
+            fig6 = px.line(
+                gains, x="pct_students", y="pct_dropouts",
+                labels={"pct_students": "Share of Students Contacted",
+                        "pct_dropouts": "Share of Dropouts Captured"},
             )
-            fig6.update_layout(height=320, margin=dict(t=30, b=10, l=60, r=60),
-                               coloraxis_showscale=False,
+            fig6.update_traces(line=dict(color="#dc2626", width=3))
+            fig6.add_shape(type="line", x0=0, y0=0, x1=1, y1=1,
+                           line=dict(color="#94a3b8", dash="dot", width=1))
+            fig6.add_annotation(x=0.75, y=0.78, text="Random baseline",
+                                showarrow=False, font=dict(color="#94a3b8", size=11))
+            fig6.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
+                               xaxis_tickformat=".0%", yaxis_tickformat=".0%",
                                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig6, use_container_width=True)
+
+            top20 = gains.iloc[: max(1, n // 5)]
+            capture = top20["target"].sum() / total_pos
+            st.caption(f"Top 20% of students by risk capture **{capture:.0%}** of all dropouts.")
         else:
-            st.info("Module/Risk/Intervention data unavailable")
+            st.info("target column unavailable — cannot compute gains curve")
 
 with st.expander(f"Alert Table — {len(filtered):,} students", expanded=False):
     table_cols = [c for c in [
