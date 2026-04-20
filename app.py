@@ -1,10 +1,6 @@
 """Main entry point for the Student Dropout Prediction & Alert System dashboard."""
 
-from pathlib import Path
-
 import streamlit as st
-
-from src.data_loader import load_config
 
 st.set_page_config(
     page_title="Student Dropout Prediction & Alert System",
@@ -69,30 +65,6 @@ pages = {
 with st.sidebar:
     st.markdown("## Student Risk System")
     st.caption("AI-powered early warning system")
-    st.divider()
-    st.markdown("### System Status")
-
-    base_dir = Path(__file__).resolve().parent
-    perf_ok = (base_dir / "data/processed/performance/student_predictions.csv").exists()
-    drop_ok = (base_dir / "data/processed/dropout/Student_risk_report.csv").exists()
-    model_ok = (base_dir / "models/dropout/dropout_xgb_optimized.joblib").exists()
-
-    st.markdown("**Academic Model (UCI)**")
-    st.markdown(f"{'[OK]' if perf_ok else '[MISSING]'} Performance data")
-    st.markdown("")
-    st.markdown("**Dropout Model (OULA)**")
-    st.markdown(f"{'[OK]' if drop_ok else '[MISSING]'} Dropout data")
-    st.markdown(f"{'[OK]' if model_ok else '[MISSING]'} Optimized XGBoost")
-
-    config = load_config()
-    st.caption(f"Dropout threshold: **{config['dropout']['threshold']}**")
-    metrics = config["dropout"].get("metrics", {})
-    if metrics:
-        st.caption(
-            f"Model — P: {metrics.get('precision', '?')} | "
-            f"R: {metrics.get('recall', '?')} | "
-            f"AUC: {metrics.get('auc', '?')}"
-        )
 
 navigation = st.navigation(pages, position="sidebar")
 navigation.run()
