@@ -5,3 +5,13 @@ enableXsrfProtection = false
 
 [theme]
 base = "light"
+primaryColor = "#1d4ed8"
+backgroundColor = "#f6f8fc"
+secondaryBackgroundColor = "#eaf1fb"
+textColor = "#0f172a"
+
+[theme.sidebar]
+primaryColor = "#1d4ed8"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#eaf1fb"
+textColor = "#0f172a"

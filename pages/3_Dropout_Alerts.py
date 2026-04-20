@@ -6,8 +6,8 @@ import streamlit as st
 
 from src.data_loader import load_dropout_data, load_actionable_report, deduplicate_dropout, load_config
 
-st.title("Dropout Risk Alerts")
-st.caption("Early warning flags from the first 40 days of OULA engagement data")
+st.title("Dropout Engagement Risk Alerts")
+st.caption("Early warning flags from the OULA Virtual Learning Environment — first 40 days of student engagement (independent dataset from Academic model)")
 
 # ─── Load Data ────────────────────────────────────────────────────────────────
 with st.spinner("Loading dropout data..."):

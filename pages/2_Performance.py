@@ -9,7 +9,7 @@ from src.data_loader import load_performance_data, get_feature_names, get_popula
 from src.predictor import load_model, predict_single
 
 st.title("Academic Performance Model")
-st.caption("Pass/fail predictions from UCI student performance dataset")
+st.caption("Academic failure risk from the UCI Student Performance dataset — independent from the Dropout Engagement model")
 
 # ─── Load Data ────────────────────────────────────────────────────────────────
 with st.spinner("Loading performance data..."):

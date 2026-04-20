@@ -77,9 +77,12 @@ with st.sidebar:
     drop_ok = (base_dir / "data/processed/dropout/Student_risk_report.csv").exists()
     model_ok = (base_dir / "models/dropout/dropout_xgb_optimized.joblib").exists()
 
+    st.markdown("**Academic Model (UCI)**")
     st.markdown(f"{'[OK]' if perf_ok else '[MISSING]'} Performance data")
+    st.markdown("")
+    st.markdown("**Dropout Model (OULA)**")
     st.markdown(f"{'[OK]' if drop_ok else '[MISSING]'} Dropout data")
-    st.markdown(f"{'[OK]' if model_ok else '[MISSING]'} Optimized model")
+    st.markdown(f"{'[OK]' if model_ok else '[MISSING]'} Optimized XGBoost")
 
     config = load_config()
     st.caption(f"Dropout threshold: **{config['dropout']['threshold']}**")

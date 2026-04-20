@@ -30,16 +30,20 @@ PERFORMANCE_EXPLANATION_FEATURES = {
 }
 
 st.title("Student Profile")
-st.caption("Individual risk deep-dive with SHAP explanation and peer comparison")
+st.caption("Individual risk deep-dive — select a Risk Dimension above to examine Academic Failure Risk or Dropout Engagement Risk")
 
 # ─── Dataset / Student Selector ───────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## Student Selection")
-    dataset_choice = st.selectbox("Dataset", ["Dropout (OULA)", "Academic (UCI)"])
+    dataset_choice = st.selectbox(
+        "Risk Dimension",
+        ["Dropout Engagement Risk (OULA)", "Academic Failure Risk (UCI)"],
+        help="Select which risk model to examine. These are independent student populations — IDs are not shared."
+    )
 
 # ─── Load Data ────────────────────────────────────────────────────────────────
 with st.spinner("Loading data..."):
-    if dataset_choice == "Dropout (OULA)":
+    if dataset_choice == "Dropout Engagement Risk (OULA)":
         raw_df = load_dropout_data()
         df = deduplicate_dropout(raw_df)
         id_col = "Student_ID"

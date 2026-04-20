@@ -9,8 +9,15 @@ import streamlit as st
 
 from src.data_loader import load_performance_data, load_dropout_data, deduplicate_dropout
 
-st.title("System Overview")
-st.caption("System-wide risk metrics across both academic performance and dropout models")
+st.title("Student Risk System Dashboard")
+st.caption("Two complementary early-warning models monitoring academic failure risk and dropout engagement risk")
+
+st.info(
+    "**Two independent risk dimensions are monitored:**  \n"
+    "**Academic Failure Risk** — identifies students likely to fail based on grades and attendance (UCI dataset, 1,044 students)  \n"
+    "**Dropout Engagement Risk** — identifies students disengaging from online learning in the first 40 days (OULA dataset, 32,593+ students)  \n"
+    "Student IDs are not shared between datasets — these are different student populations."
+)
 
 # ─── Sidebar Filters ──────────────────────────────────────────────────────────
 with st.sidebar:
@@ -52,13 +59,18 @@ if "code_module" in drop_df.columns:
 drop_high  = int((drop_df["Dropout_Risk_Level"].astype(str) == "High").sum())
 drop_med   = int((drop_df["Dropout_Risk_Level"].astype(str) == "Medium").sum())
 perf_high  = int((perf_df["risk_level"].astype(str) == "High").sum()) if "risk_level" in perf_df.columns else 0
-total_recs = len(drop_df) + len(perf_df)
 
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Total Records", f"{total_recs:,}")
-k2.metric("Dropout High Risk", f"{drop_high:,}", delta=f"{drop_high/max(len(drop_df),1):.0%}", delta_color="inverse")
-k3.metric("Dropout Medium Risk", f"{drop_med:,}")
-k4.metric("Academic High Risk", f"{perf_high:,}", delta=f"{perf_high/max(len(perf_df),1):.0%}", delta_color="inverse")
+st.markdown("##### Academic Model — UCI Dataset")
+ak1, ak2, ak3 = st.columns(3)
+ak1.metric("Total Students", f"{len(perf_df):,}")
+ak2.metric("High Risk", f"{perf_high:,}", delta=f"{perf_high/max(len(perf_df),1):.0%}", delta_color="inverse")
+ak3.metric("Medium Risk", f"{int((perf_df['risk_level'].astype(str) == 'Medium').sum()):,}")
+
+st.markdown("##### Dropout Model — OULA Dataset")
+dk1, dk2, dk3 = st.columns(3)
+dk1.metric("Total Students", f"{len(drop_df):,}")
+dk2.metric("High Risk", f"{drop_high:,}", delta=f"{drop_high/max(len(drop_df),1):.0%}", delta_color="inverse")
+dk3.metric("Medium Risk", f"{drop_med:,}")
 
 st.divider()
 
