@@ -121,7 +121,7 @@ with c3:
                            annotation_text=f"Medium ≥ {medium_thresh:.2f}", annotation_position="top")
             fig3.add_vline(x=high_thresh, line_dash="dash", line_color="#dc2626",
                            annotation_text=f"High ≥ {high_thresh:.2f}", annotation_position="top")
-            fig3.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10),
+            fig3.update_layout(height=340, margin=dict(t=64, b=12, l=10, r=10),
                                bargap=0.05, plot_bgcolor="rgba(0,0,0,0)",
                                paper_bgcolor="rgba(0,0,0,0)", legend_title_text="Risk")
             st.plotly_chart(fig3, use_container_width=True)
