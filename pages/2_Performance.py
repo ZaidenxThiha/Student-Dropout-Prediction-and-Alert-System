@@ -123,27 +123,22 @@ bottom_col1, bottom_col2 = st.columns(2)
 
 with bottom_col1:
     with st.container(border=True):
-        st.markdown("#### Risk Mix by Course")
-        if "dataset" in df.columns and risk_col:
-            ds_df = (
-                df.groupby(["dataset", risk_col]).size().reset_index(name="count")
+        st.markdown("#### Feature Correlation Heatmap")
+        corr_cols = [c for c in ["G1", "G2", "absences", "failures", "studytime",
+                                   "goout", "Dalc", "Walc", "health", "age", "risk_score"]
+                     if c in df.columns]
+        if len(corr_cols) >= 3:
+            corr = df[corr_cols].apply(pd.to_numeric, errors="coerce").corr().round(2)
+            fig5 = px.imshow(
+                corr, text_auto=True, aspect="auto",
+                color_continuous_scale="RdBu_r", zmin=-1, zmax=1,
+                labels=dict(color="Corr"),
             )
-            totals = ds_df.groupby("dataset")["count"].transform("sum")
-            ds_df["pct"] = ds_df["count"] / totals
-            fig5 = px.bar(
-                ds_df, x="dataset", y="pct", color=risk_col,
-                category_orders={risk_col: RISK_ORDER},
-                color_discrete_map=RISK_COLORS, barmode="stack",
-                labels={"dataset": "Course", "pct": "Share of Students"},
-                text=ds_df["count"],
-            )
-            fig5.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10),
-                               yaxis_tickformat=".0%",
-                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                               legend_title_text="Risk")
+            fig5.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
+                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig5, use_container_width=True)
         else:
-            st.info("Course mix unavailable")
+            st.info("Not enough numeric columns for correlation")
 
 with bottom_col2:
     with st.container(border=True):

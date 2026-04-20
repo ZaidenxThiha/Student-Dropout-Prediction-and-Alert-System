@@ -130,24 +130,34 @@ with c3:
 
 with c4:
     with st.container(border=True):
-        st.markdown("#### Avg Assessment Score vs VLE Clicks")
-        if {"avg_score", "total_clicks"}.issubset(filtered.columns) and not filtered.empty:
-            fig4 = px.scatter(
-                filtered, x="total_clicks", y="avg_score",
-                color="Dropout_Risk_Level" if "Dropout_Risk_Level" in filtered.columns else None,
-                color_discrete_map=RISK_COLORS,
-                category_orders={"Dropout_Risk_Level": RISK_ORDER},
-                opacity=0.55,
-                hover_data=[c for c in ["Student_ID", "code_module", "active_days"] if c in filtered.columns],
-                labels={"total_clicks": "Total VLE Clicks", "avg_score": "Avg Assessment Score"},
+        st.markdown("#### Mean Dropout Risk — Avg Score × VLE Clicks")
+        needed = {"avg_score", "total_clicks", "Risk_Probability_Value"}
+        if needed.issubset(filtered.columns) and not filtered.empty:
+            hm = filtered.copy()
+            hm["score_bin"] = pd.cut(
+                pd.to_numeric(hm["avg_score"], errors="coerce"),
+                bins=[0, 40, 55, 70, 85, 100],
+                labels=["0–40", "40–55", "55–70", "70–85", "85–100"],
             )
-            fig4.update_traces(marker=dict(size=7, line=dict(width=0.4, color="white")))
-            fig4.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10),
-                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                               legend_title_text="Risk")
+            hm["clicks_bin"] = pd.qcut(
+                pd.to_numeric(hm["total_clicks"], errors="coerce").rank(method="first"),
+                q=5, labels=["Very Low", "Low", "Medium", "High", "Very High"],
+            )
+            pivot = (
+                hm.groupby(["score_bin", "clicks_bin"], observed=False)["Risk_Probability_Value"]
+                .mean().reset_index()
+                .pivot(index="score_bin", columns="clicks_bin", values="Risk_Probability_Value")
+            )
+            fig4 = px.imshow(
+                pivot, text_auto=".0%", aspect="auto",
+                color_continuous_scale="Reds", zmin=0, zmax=1,
+                labels=dict(x="VLE Clicks Quintile", y="Avg Score Band", color="Mean Risk"),
+            )
+            fig4.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10),
+                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig4, use_container_width=True)
         else:
-            st.info("avg_score / total_clicks unavailable")
+            st.info("avg_score / total_clicks / risk unavailable")
 
 c5, c6 = st.columns(2)
 
