@@ -181,21 +181,25 @@ with c5:
 
 with c6:
     with st.container(border=True):
-        st.markdown("#### Risk Composition by Module (Sunburst)")
-        if {"code_module", "Dropout_Risk_Level"}.issubset(filtered.columns) and not filtered.empty:
-            sun_df = (
-                filtered.groupby(["code_module", "Dropout_Risk_Level"])
-                .size().reset_index(name="count")
+        st.markdown("#### Module → Risk → Intervention Flow")
+        flow_cols = [c for c in ["code_module", "Dropout_Risk_Level", "Intervention_Status"]
+                     if c in filtered.columns]
+        if len(flow_cols) >= 2 and not filtered.empty:
+            flow_df = filtered[flow_cols].copy().astype(str)
+            risk_numeric = flow_df["Dropout_Risk_Level"].map(
+                {"Low": 0, "Medium": 1, "High": 2}
+            ).fillna(0) if "Dropout_Risk_Level" in flow_df.columns else 0
+            fig6 = px.parallel_categories(
+                flow_df, dimensions=flow_cols,
+                color=risk_numeric,
+                color_continuous_scale=[[0, "#16a34a"], [0.5, "#f59e0b"], [1, "#dc2626"]],
             )
-            fig6 = px.sunburst(
-                sun_df, path=["code_module", "Dropout_Risk_Level"], values="count",
-                color="Dropout_Risk_Level", color_discrete_map=RISK_COLORS,
-            )
-            fig6.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10),
+            fig6.update_layout(height=320, margin=dict(t=30, b=10, l=60, r=60),
+                               coloraxis_showscale=False,
                                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig6, use_container_width=True)
         else:
-            st.info("Module breakdown unavailable")
+            st.info("Module/Risk/Intervention data unavailable")
 
 with st.expander(f"Alert Table — {len(filtered):,} students", expanded=False):
     table_cols = [c for c in [
