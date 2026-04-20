@@ -49,7 +49,7 @@ with chart_col1:
                           annotation_text="Medium ≥ 0.50", annotation_position="top")
             fig.add_vline(x=0.65, line_dash="dash", line_color="#dc2626",
                           annotation_text="High ≥ 0.65", annotation_position="top")
-            fig.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10),
+            fig.update_layout(height=320, margin=dict(t=56, b=10, l=10, r=10),
                               bargap=0.05, plot_bgcolor="rgba(0,0,0,0)",
                               paper_bgcolor="rgba(0,0,0,0)", legend_title_text="Risk")
             st.plotly_chart(fig, use_container_width=True)

@@ -177,7 +177,7 @@ with r3_left:
                 color_discrete_sequence=["#6366f1"],
                 labels={"risk_score": "Academic Fail Probability"},
             )
-            fig_h1.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+            fig_h1.update_layout(margin=dict(t=36, b=10, l=10, r=10), height=320,
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_h1, use_container_width=True)
         else:
@@ -192,7 +192,7 @@ with r3_right:
                 color_discrete_sequence=["#6366f1"],
                 labels={"Risk_Probability_Value": "Dropout Probability"},
             )
-            fig_h2.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+            fig_h2.update_layout(margin=dict(t=36, b=10, l=10, r=10), height=320,
                                  yaxis_title="Count",
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_h2, use_container_width=True)
