@@ -89,123 +89,114 @@ with h2:
 with h3:
     st.metric("Risk Probability", f"{prob:.1%}")
 
-st.divider()
+pop_stats = get_population_stats(model_type)
+model = load_model(model_type)
+feat_names = load_dropout_features() if model_type == "dropout" else features
 
-# ─── Gauge Chart ──────────────────────────────────────────────────────────────
-gauge_col, explain_col = st.columns([1, 2])
+explanation = None
+explainer = None
+student_row_for_explainer = student_row
+shap_class_index = 1 if model_type == "dropout" else 0
+allowed_features = None if model_type == "dropout" else PERFORMANCE_EXPLANATION_FEATURES
 
-with gauge_col:
-    with st.container(border=True):
-        fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=prob * 100,
-            number={"suffix": "%", "font": {"size": 32}},
-            gauge={
-                "axis": {"range": [0, 100]},
-                "bar": {"color": "#dc2626" if risk_level == "High" else "#f59e0b" if risk_level == "Medium" else "#16a34a"},
-                "steps": [
-                    {"range": [0, 36], "color": "#dcfce7"},
-                    {"range": [36, 51], "color": "#fef9c3"},
-                    {"range": [51, 100], "color": "#fee2e2"},
-                ],
-                "threshold": {"line": {"color": "black", "width": 3}, "value": prob * 100},
-            },
-            title={"text": "Risk Score"},
-        ))
-        fig_gauge.update_layout(height=240, margin=dict(t=40, b=10, l=20, r=20),
-                                 paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_gauge, use_container_width=True)
+with st.spinner("Computing explanation..."):
+    if model and not preprocessed.empty:
+        feat_data = preprocessed[[f for f in feat_names if f in preprocessed.columns]].dropna()
+        try:
+            if model_type == "performance" and hasattr(model, "named_steps"):
+                preprocessor_step = (
+                    model.named_steps.get("preprocess")
+                    or model.named_steps.get("preprocessor")
+                    or model.named_steps.get("prep")
+                )
+                rf_step = (
+                    model.named_steps.get("model")
+                    or model.named_steps.get("classifier")
+                    or model.named_steps.get("clf")
+                )
+                if preprocessor_step is not None and rf_step is not None:
+                    X_transformed = preprocessor_step.transform(feat_data)
+                    if hasattr(X_transformed, "toarray"):
+                        X_transformed = X_transformed.toarray()
+                    X_transformed = np.array(X_transformed, dtype=float)
 
-# ─── SHAP Explanation ──────────────────────────────────────────────────────────
-with explain_col:
-    with st.container(border=True):
-        st.markdown("#### Risk Explanation")
-        with st.spinner("Computing explanation..."):
-            pop_stats = get_population_stats(model_type)
-            model = load_model(model_type)
-            feat_names = load_dropout_features() if model_type == "dropout" else features
+                    raw_names = list(preprocessor_step.get_feature_names_out())
+                    clean_names = [n.replace("num__", "").replace("cat__", "") for n in raw_names]
+                    X_shap = pd.DataFrame(X_transformed, columns=clean_names)
 
-            explanation = None
-            explainer = None
-            student_row_for_explainer = student_row  # may be overridden for performance pipeline
-            shap_class_index = 1 if model_type == "dropout" else 0
-            allowed_features = None if model_type == "dropout" else PERFORMANCE_EXPLANATION_FEATURES
+                    student_raw = {f: student_row.get(f, None) for f in feat_names}
+                    student_df = pd.DataFrame([student_raw])
+                    student_transformed = preprocessor_step.transform(student_df)
+                    if hasattr(student_transformed, "toarray"):
+                        student_transformed = student_transformed.toarray()
+                    student_transformed = np.array(student_transformed, dtype=float)
+                    student_row_shap = pd.Series(student_transformed[0], index=clean_names)
+                    student_row_for_explainer = student_row_shap
 
-            if model and not preprocessed.empty:
-                feat_data = preprocessed[[f for f in feat_names if f in preprocessed.columns]].dropna()
-                try:
-                    if model_type == "performance" and hasattr(model, "named_steps"):
-                        # Unwrap sklearn Pipeline: extract RF and transform data
-                        preprocessor_step = (
-                            model.named_steps.get("preprocess")
-                            or model.named_steps.get("preprocessor")
-                            or model.named_steps.get("prep")
-                        )
-                        rf_step = (
-                            model.named_steps.get("model")
-                            or model.named_steps.get("classifier")
-                            or model.named_steps.get("clf")
-                        )
-                        if preprocessor_step is not None and rf_step is not None:
-                            X_transformed = preprocessor_step.transform(feat_data)
-                            # ColumnTransformer with OHE returns sparse — convert to dense
-                            if hasattr(X_transformed, "toarray"):
-                                X_transformed = X_transformed.toarray()
-                            X_transformed = np.array(X_transformed, dtype=float)
+                    pop_stats_shap = {
+                        cn: {"mean": float(X_shap[cn].mean()), "std": float(X_shap[cn].std())}
+                        for cn in clean_names
+                    }
 
-                            raw_names = list(preprocessor_step.get_feature_names_out())
-                            # Strip num__/cat__ prefixes added by ColumnTransformer
-                            clean_names = [
-                                n.replace("num__", "").replace("cat__", "") for n in raw_names
-                            ]
-                            X_shap = pd.DataFrame(X_transformed, columns=clean_names)
+                    explainer = ModelExplainer(
+                        rf_step,
+                        X_shap,
+                        clean_names,
+                        class_index=shap_class_index,
+                        allowed_features=allowed_features,
+                    )
+                    explanation = explainer.get_student_explanation(student_row_shap, pop_stats_shap)
+                else:
+                    explainer = ModelExplainer(
+                        model,
+                        feat_data,
+                        feat_names,
+                        class_index=shap_class_index,
+                        allowed_features=allowed_features,
+                    )
+                    explanation = explainer.get_student_explanation(student_row, pop_stats)
+            else:
+                explainer = ModelExplainer(
+                    model,
+                    feat_data,
+                    feat_names,
+                    class_index=shap_class_index,
+                    allowed_features=allowed_features,
+                )
+                explanation = explainer.get_student_explanation(student_row, pop_stats)
+        except Exception as e:
+            st.info(f"Explanation unavailable: {e}")
 
-                            # Transform the selected student's raw features
-                            student_raw = {f: student_row.get(f, None) for f in feat_names}
-                            student_df = pd.DataFrame([student_raw])
-                            student_transformed = preprocessor_step.transform(student_df)
-                            if hasattr(student_transformed, "toarray"):
-                                student_transformed = student_transformed.toarray()
-                            student_transformed = np.array(student_transformed, dtype=float)
-                            student_row_shap = pd.Series(student_transformed[0], index=clean_names)
-                            student_row_for_explainer = student_row_shap
+profile_tabs = st.tabs(["Overview", "Feature Impact", "Communication"])
 
-                            # Build population stats for transformed features
-                            pop_stats_shap = {
-                                cn: {"mean": float(X_shap[cn].mean()), "std": float(X_shap[cn].std())}
-                                for cn in clean_names
-                            }
+with profile_tabs[0]:
+    gauge_col, explain_col = st.columns([1, 2])
 
-                            explainer = ModelExplainer(
-                                rf_step,
-                                X_shap,
-                                clean_names,
-                                class_index=shap_class_index,
-                                allowed_features=allowed_features,
-                            )
-                            explanation = explainer.get_student_explanation(student_row_shap, pop_stats_shap)
-                        else:
-                            # Pipeline structure unknown — try direct
-                            explainer = ModelExplainer(
-                                model,
-                                feat_data,
-                                feat_names,
-                                class_index=shap_class_index,
-                                allowed_features=allowed_features,
-                            )
-                            explanation = explainer.get_student_explanation(student_row, pop_stats)
-                    else:
-                        explainer = ModelExplainer(
-                            model,
-                            feat_data,
-                            feat_names,
-                            class_index=shap_class_index,
-                            allowed_features=allowed_features,
-                        )
-                        explanation = explainer.get_student_explanation(student_row, pop_stats)
-                except Exception as e:
-                    st.info(f"Explanation unavailable: {e}")
+    with gauge_col:
+        with st.container(border=True):
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=prob * 100,
+                number={"suffix": "%", "font": {"size": 32}},
+                gauge={
+                    "axis": {"range": [0, 100]},
+                    "bar": {"color": "#dc2626" if risk_level == "High" else "#f59e0b" if risk_level == "Medium" else "#16a34a"},
+                    "steps": [
+                        {"range": [0, 36], "color": "#dcfce7"},
+                        {"range": [36, 51], "color": "#fef9c3"},
+                        {"range": [51, 100], "color": "#fee2e2"},
+                    ],
+                    "threshold": {"line": {"color": "black", "width": 3}, "value": prob * 100},
+                },
+                title={"text": "Risk Score"},
+            ))
+            fig_gauge.update_layout(height=240, margin=dict(t=40, b=10, l=20, r=20),
+                                     paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_gauge, use_container_width=True)
 
+    with explain_col:
+        with st.container(border=True):
+            st.markdown("#### Risk Explanation")
             if explanation:
                 st.markdown(f"**Summary:** {explanation['summary']}")
                 st.divider()
@@ -227,110 +218,152 @@ with explain_col:
             elif not model:
                 st.info("Model not available for explanation.")
 
-# ─── SHAP Waterfall ────────────────────────────────────────────────────────────
-st.divider()
-wf_col, radar_col = st.columns(2)
+with profile_tabs[1]:
+    wf_col, radar_col = st.columns(2)
 
-with wf_col:
-    with st.container(border=True):
-        st.markdown("#### SHAP Feature Impact")
-        if explainer is not None:
-            try:
-                fig_wf = explainer.plot_waterfall(student_row_for_explainer)
-                if fig_wf:
-                    st.plotly_chart(fig_wf, use_container_width=True)
-                else:
-                    st.info("Waterfall chart unavailable")
-            except Exception:
-                st.info("Waterfall chart unavailable")
-        else:
-            st.info("Model not available")
-
-# ─── Radar Chart: Student vs Class Average ─────────────────────────────────────
-with radar_col:
-    with st.container(border=True):
-        st.markdown("#### Student vs Class Average (Numeric Features)")
-        numeric_feats = [f for f in feat_names if f in student_row.index]
-        pop_stats = get_population_stats(model_type)
-
-        radar_feats = [f for f in numeric_feats if f in pop_stats][:7]
-        if radar_feats:
-            student_vals, avg_vals = [], []
-            for f in radar_feats:
-                sv = student_row.get(f, pop_stats[f]["mean"])
+    with wf_col:
+        with st.container(border=True):
+            st.markdown("#### SHAP Feature Impact")
+            if explainer is not None:
                 try:
-                    sv = float(sv)
-                except (TypeError, ValueError):
-                    sv = pop_stats[f]["mean"]
-                student_vals.append(sv)
-                avg_vals.append(pop_stats[f]["mean"])
-
-            labels = [f.replace("_", " ").title() for f in radar_feats]
-            fig_radar = go.Figure()
-            fig_radar.add_trace(go.Scatterpolar(r=student_vals, theta=labels, fill="toself",
-                                                  name="This Student", line_color="#6366f1"))
-            fig_radar.add_trace(go.Scatterpolar(r=avg_vals, theta=labels, fill="toself",
-                                                  name="Class Average", line_color="#94a3b8",
-                                                  fillcolor="rgba(148,163,184,0.2)"))
-            fig_radar.update_layout(height=280, margin=dict(t=30, b=10, l=10, r=10),
-                                     polar=dict(radialaxis=dict(visible=True)),
-                                     paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_radar, use_container_width=True)
-        else:
-            st.info("No numeric features available for radar chart")
-
-# ─── Parent Notification ──────────────────────────────────────────────────────
-st.divider()
-with st.container(border=True):
-    st.markdown("#### Parent / Guardian Notification")
-    st.caption("Review and send this message to the student's parent or guardian.")
-
-    if explanation and explanation.get("parent_message"):
-        message = explanation["parent_message"]
-        edited_message = st.text_area(
-            "Message (editable before sending)",
-            value=message,
-            height=380,
-            key=f"parent_msg_{dataset_choice}_{selected_id}",
-        )
-        st.download_button(
-            "Download as Text File",
-            data=edited_message.encode(),
-            file_name=f"parent_notification_{selected_id}.txt",
-            mime="text/plain",
-        )
-    else:
-        st.info("No explanation available to generate a parent notification.")
-
-# ─── Similar Students ─────────────────────────────────────────────────────────
-st.divider()
-with st.container(border=True):
-    st.markdown("#### Similar Students (Nearest Neighbours)")
-    numeric_cols = [f for f in feat_names if f in preprocessed.columns and pd.api.types.is_numeric_dtype(preprocessed[f])]
-    if numeric_cols and len(preprocessed) > 5:
-        try:
-            feat_mat = preprocessed[numeric_cols].fillna(0).values
-            student_vec_df = df[df[id_col].astype(str) == selected_id]
-            student_numeric = student_vec_df[[f for f in numeric_cols if f in student_vec_df.columns]].fillna(0).values
-
-            if student_numeric.shape[1] == feat_mat.shape[1]:
-                knn = NearestNeighbors(n_neighbors=6)
-                knn.fit(feat_mat)
-                _, indices = knn.kneighbors(student_numeric)
-                neighbours = preprocessed.iloc[indices[0][1:6]]
-
-                if model_type == "dropout":
-                    candidate_cols = [id_col, "code_module", "final_result", "total_clicks", "active_days", "avg_score"]
-                else:
-                    candidate_cols = [id_col, "G1", "G2", "failures", "absences", "studytime", risk_col, prob_col]
-                show_cols = [c for c in candidate_cols if c and c in neighbours.columns]
-                if len(show_cols) > 1:
-                    st.dataframe(neighbours[show_cols], hide_index=True, use_container_width=True)
-                else:
-                    st.dataframe(neighbours[numeric_cols], hide_index=True, use_container_width=True)
+                    fig_wf = explainer.plot_waterfall(student_row_for_explainer)
+                    if fig_wf:
+                        st.plotly_chart(fig_wf, use_container_width=True)
+                    else:
+                        st.info("Waterfall chart unavailable")
+                except Exception:
+                    st.info("Waterfall chart unavailable")
             else:
-                st.info("Feature mismatch — cannot compute neighbours.")
-        except Exception as e:
-            st.info(f"Similar students unavailable: {e}")
-    else:
-        st.info("Insufficient data for neighbour comparison.")
+                st.info("Model not available")
+
+    with radar_col:
+        with st.container(border=True):
+            st.markdown("#### Student vs Class Average")
+            numeric_feats = [f for f in feat_names if f in student_row.index]
+            radar_feats = [f for f in numeric_feats if f in pop_stats][:7]
+            if radar_feats:
+                student_vals, avg_vals = [], []
+                for f in radar_feats:
+                    sv = student_row.get(f, pop_stats[f]["mean"])
+                    try:
+                        sv = float(sv)
+                    except (TypeError, ValueError):
+                        sv = pop_stats[f]["mean"]
+                    student_vals.append(sv)
+                    avg_vals.append(pop_stats[f]["mean"])
+
+                labels = [f.replace("_", " ").title() for f in radar_feats]
+                fig_radar = go.Figure()
+                fig_radar.add_trace(go.Scatterpolar(r=student_vals, theta=labels, fill="toself",
+                                                      name="This Student", line_color="#6366f1"))
+                fig_radar.add_trace(go.Scatterpolar(r=avg_vals, theta=labels, fill="toself",
+                                                      name="Class Average", line_color="#94a3b8",
+                                                      fillcolor="rgba(148,163,184,0.2)"))
+                fig_radar.update_layout(height=280, margin=dict(t=30, b=10, l=10, r=10),
+                                         polar=dict(radialaxis=dict(visible=True)),
+                                         paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_radar, use_container_width=True)
+            else:
+                st.info("No numeric features available for radar chart")
+
+with profile_tabs[2]:
+    comm_col1, comm_col2 = st.columns([1.4, 1])
+
+    with comm_col1:
+        with st.container(border=True):
+            st.markdown("#### Parent / Guardian Notification")
+            if explanation and explanation.get("parent_message"):
+                message = explanation["parent_message"]
+                edited_message = st.text_area(
+                    "Message (editable before sending)",
+                    value=message,
+                    height=320,
+                    key=f"parent_msg_{dataset_choice}_{selected_id}",
+                )
+                st.download_button(
+                    "Download as Text File",
+                    data=edited_message.encode(),
+                    file_name=f"parent_notification_{selected_id}.txt",
+                    mime="text/plain",
+                )
+            else:
+                st.info("No explanation available to generate a parent notification.")
+
+    with comm_col2:
+        with st.container(border=True):
+            st.markdown("#### Similar Students")
+            numeric_cols = [f for f in feat_names if f in preprocessed.columns and pd.api.types.is_numeric_dtype(preprocessed[f])]
+            if numeric_cols and len(preprocessed) > 5:
+                try:
+                    feat_mat = preprocessed[numeric_cols].fillna(0).values
+                    student_vec_df = df[df[id_col].astype(str) == selected_id]
+                    student_numeric = student_vec_df[[f for f in numeric_cols if f in student_vec_df.columns]].fillna(0).values
+
+                    if student_numeric.shape[1] == feat_mat.shape[1]:
+                        knn = NearestNeighbors(n_neighbors=6)
+                        knn.fit(feat_mat)
+                        _, indices = knn.kneighbors(student_numeric)
+                        neighbours = preprocessed.iloc[indices[0][1:6]]
+
+                        if model_type == "dropout":
+                            candidate_cols = [
+                                id_col,
+                                "Dropout_Risk_Level",
+                                "Risk_Probability_Value",
+                                "Primary_Risk_Factors",
+                                "code_module",
+                                "final_result",
+                                "total_clicks",
+                                "active_days",
+                                "avg_score",
+                            ]
+                            join_cols = [c for c in ["id_student", "code_module", "code_presentation"] if c in neighbours.columns and c in df.columns]
+                            if join_cols:
+                                display_lookup_cols = list(dict.fromkeys(join_cols + candidate_cols))
+                                neighbour_display = neighbours.merge(
+                                    df[display_lookup_cols].drop_duplicates(),
+                                    on=join_cols,
+                                    how="left",
+                                )
+                                # Fallback for rows that did not match the deduplicated display table on all join keys.
+                                if "id_student" in neighbour_display.columns:
+                                    fallback_cols = [c for c in [id_col, "Dropout_Risk_Level", "Risk_Probability_Value", "Primary_Risk_Factors"] if c in df.columns]
+                                    fallback_lookup = df[["id_student"] + fallback_cols].drop_duplicates(subset=["id_student"])
+                                    missing_mask = neighbour_display[id_col].isna() if id_col in neighbour_display.columns else pd.Series(False, index=neighbour_display.index)
+                                    if missing_mask.any():
+                                        fallback_rows = neighbour_display.loc[missing_mask, ["id_student"]].merge(
+                                            fallback_lookup,
+                                            on="id_student",
+                                            how="left",
+                                        )
+                                        for col in fallback_cols:
+                                            if col in neighbour_display.columns and col in fallback_rows.columns:
+                                                neighbour_display.loc[missing_mask, col] = fallback_rows[col].values
+                            else:
+                                neighbour_display = neighbours
+                        else:
+                            candidate_cols = [id_col, "G1", "G2", "failures", "absences", "studytime", risk_col, prob_col]
+                            neighbour_display = neighbours
+                        show_cols = [c for c in candidate_cols if c and c in neighbour_display.columns]
+                        if len(show_cols) > 1:
+                            display_table = neighbour_display[show_cols].copy()
+                            if model_type == "dropout":
+                                if id_col in display_table.columns and "id_student" in neighbour_display.columns:
+                                    display_table[id_col] = display_table[id_col].fillna(neighbour_display["id_student"])
+                                if "Primary_Risk_Factors" in display_table.columns:
+                                    display_table["Primary_Risk_Factors"] = display_table["Primary_Risk_Factors"].fillna("N/A")
+                                if "Dropout_Risk_Level" in display_table.columns:
+                                    display_table["Dropout_Risk_Level"] = display_table["Dropout_Risk_Level"].fillna("Unknown")
+                            if "Risk_Probability_Value" in display_table.columns:
+                                display_table["Risk_Probability_Value"] = display_table["Risk_Probability_Value"].apply(
+                                    lambda x: f"{x:.1%}" if pd.notna(x) else "N/A"
+                                )
+                            st.dataframe(display_table, hide_index=True, use_container_width=True, height=320)
+                        else:
+                            st.dataframe(neighbour_display[numeric_cols], hide_index=True, use_container_width=True, height=320)
+                    else:
+                        st.info("Feature mismatch — cannot compute neighbours.")
+                except Exception as e:
+                    st.info(f"Similar students unavailable: {e}")
+            else:
+                st.info("Insufficient data for neighbour comparison.")

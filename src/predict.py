@@ -10,7 +10,16 @@ import pandas as pd
 from joblib import load
 
 
-DROPOUT_THRESHOLD = 0.5
+def _load_config() -> dict:
+    config_path = Path(__file__).resolve().parent.parent / "config" / "model_config.json"
+    if config_path.exists():
+        import json
+        with open(config_path) as f:
+            return json.load(f)
+    return {
+        "dropout": {"threshold": 0.36, "risk_levels": {"high": 0.51, "medium": 0.36}},
+        "performance": {"threshold": 0.5, "risk_levels": {"high": 0.65, "medium": 0.5}},
+    }
 
 
 def load_model(model_path: Optional[Path] = None):
@@ -49,13 +58,18 @@ def load_dropout_features(path: Optional[Path] = None) -> list[str]:
     return load(path)
 
 
-def risk_level(prob_fail: float) -> str:
+def risk_level(prob_fail: float, config: Optional[dict] = None) -> str:
     """Map performance fail probability to risk bucket."""
-    if prob_fail < 0.3:
-        return "Low"
-    if prob_fail < 0.6:
+    if config is None:
+        config = _load_config()
+    levels = config["performance"]["risk_levels"]
+    high = levels.get("high", 0.65)
+    medium = levels.get("medium", 0.5)
+    if prob_fail >= high:
+        return "High"
+    if prob_fail >= medium:
         return "Medium"
-    return "High"
+    return "Low"
 
 
 def _performance_factor_candidates(row: pd.Series) -> list[str]:
@@ -134,7 +148,7 @@ def predict_students(df: pd.DataFrame, model=None) -> pd.DataFrame:
     result = df.copy()
     result["prediction"] = preds
     result["risk_score"] = prob_fail
-    result["risk_level"] = result["risk_score"].apply(risk_level)
+    result["risk_level"] = result["risk_score"].apply(lambda x: risk_level(x))
     result["Primary_Risk_Factors"] = result.apply(derive_performance_risk_factors, axis=1)
     return result
 
@@ -143,10 +157,12 @@ def predict_dropout_students(
     df: pd.DataFrame,
     student_ids: Optional[pd.Series] = None,
     model=None,
-    threshold: float = DROPOUT_THRESHOLD,
+    threshold: Optional[float] = None,
     features: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Predict dropout risk and create a full dropout risk report."""
+    if threshold is None:
+        threshold = _load_config()["dropout"].get("threshold", 0.36)
     if model is None:
         model = load_dropout_model()
     if features is None:
@@ -171,6 +187,20 @@ def predict_dropout_students(
     result["Risk_Probability_Value"] = risk_probabilities
     result["Risk_Probability"] = (result["Risk_Probability_Value"] * 100).round(1).astype(str) + "%"
     result["ML_Prediction"] = predictions
+
+    cfg = _load_config()
+    risk_levels_cfg = cfg["dropout"]["risk_levels"]
+    high_thresh = risk_levels_cfg.get("high", 0.51)
+    medium_thresh = risk_levels_cfg.get("medium", 0.36)
+
+    def _dropout_risk_level(p: float) -> str:
+        if p >= high_thresh:
+            return "High"
+        if p >= medium_thresh:
+            return "Medium"
+        return "Low"
+
+    result["Dropout_Risk_Level"] = result["Risk_Probability_Value"].apply(_dropout_risk_level)
     result["Prediction_Band"] = pd.Series(predictions).map({1: "band_1", 0: "band_2"})
     result["Primary_Risk_Factors"] = result.apply(derive_dropout_risk_factors, axis=1)
     result["Intervention_Status"] = pd.Series(predictions).map(

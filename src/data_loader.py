@@ -54,10 +54,14 @@ def load_dropout_data() -> pd.DataFrame:
             else:
                 df["Risk_Probability_Value"] = 0.0
         if "Dropout_Risk_Level" not in df.columns:
-            df["Dropout_Risk_Level"] = pd.cut(
-                df["Risk_Probability_Value"],
-                bins=[-0.01, 0.3, 0.6, 1.01],
-                labels=["Low", "Medium", "High"],
+            # Fallback only — Dropout_Risk_Level should now be in the CSV from predict.py
+            _cfg_path = BASE_DIR / "config" / "model_config.json"
+            _cfg = json.load(open(_cfg_path)) if _cfg_path.exists() else {}
+            _levels = _cfg.get("dropout", {}).get("risk_levels", {"high": 0.51, "medium": 0.36})
+            _high = _levels.get("high", 0.51)
+            _medium = _levels.get("medium", 0.36)
+            df["Dropout_Risk_Level"] = df["Risk_Probability_Value"].apply(
+                lambda p: "High" if p >= _high else "Medium" if p >= _medium else "Low"
             )
         return df
 
