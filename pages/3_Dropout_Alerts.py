@@ -99,6 +99,56 @@ with c2:
         else:
             st.info("Engagement data unavailable")
 
+RISK_COLORS = {"High": "#dc2626", "Medium": "#f59e0b", "Low": "#16a34a"}
+RISK_ORDER = ["Low", "Medium", "High"]
+medium_thresh = config["dropout"]["risk_levels"].get("medium", 0.36)
+high_thresh = config["dropout"]["risk_levels"].get("high", 0.51)
+
+c3, c4 = st.columns(2)
+
+with c3:
+    with st.container(border=True):
+        st.markdown("#### Dropout Probability Distribution")
+        if "Risk_Probability_Value" in filtered.columns and not filtered.empty:
+            fig3 = px.histogram(
+                filtered, x="Risk_Probability_Value", nbins=30,
+                color="Dropout_Risk_Level" if "Dropout_Risk_Level" in filtered.columns else None,
+                color_discrete_map=RISK_COLORS,
+                category_orders={"Dropout_Risk_Level": RISK_ORDER},
+                labels={"Risk_Probability_Value": "Dropout Probability"},
+            )
+            fig3.add_vline(x=medium_thresh, line_dash="dash", line_color="#f59e0b",
+                           annotation_text=f"Medium ≥ {medium_thresh:.2f}", annotation_position="top")
+            fig3.add_vline(x=high_thresh, line_dash="dash", line_color="#dc2626",
+                           annotation_text=f"High ≥ {high_thresh:.2f}", annotation_position="top")
+            fig3.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10),
+                               bargap=0.05, plot_bgcolor="rgba(0,0,0,0)",
+                               paper_bgcolor="rgba(0,0,0,0)", legend_title_text="Risk")
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.info("Risk probability unavailable")
+
+with c4:
+    with st.container(border=True):
+        st.markdown("#### Avg Assessment Score vs VLE Clicks")
+        if {"avg_score", "total_clicks"}.issubset(filtered.columns) and not filtered.empty:
+            fig4 = px.scatter(
+                filtered, x="total_clicks", y="avg_score",
+                color="Dropout_Risk_Level" if "Dropout_Risk_Level" in filtered.columns else None,
+                color_discrete_map=RISK_COLORS,
+                category_orders={"Dropout_Risk_Level": RISK_ORDER},
+                opacity=0.55,
+                hover_data=[c for c in ["Student_ID", "code_module", "active_days"] if c in filtered.columns],
+                labels={"total_clicks": "Total VLE Clicks", "avg_score": "Avg Assessment Score"},
+            )
+            fig4.update_traces(marker=dict(size=7, line=dict(width=0.4, color="white")))
+            fig4.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10),
+                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                               legend_title_text="Risk")
+            st.plotly_chart(fig4, use_container_width=True)
+        else:
+            st.info("avg_score / total_clicks unavailable")
+
 with st.expander(f"Alert Table — {len(filtered):,} students", expanded=False):
     table_cols = [c for c in [
         "Student_ID", "code_module", "Risk_Probability_Value", "Dropout_Risk_Level",

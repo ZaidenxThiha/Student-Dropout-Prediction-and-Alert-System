@@ -83,23 +83,24 @@ chart_col3, chart_col4 = st.columns(2)
 
 with chart_col3:
     with st.container(border=True):
-        st.markdown("#### Prior Failures vs Risk")
-        if "failures" in df.columns and risk_col:
-            fail_df = (
-                df.groupby(["failures", risk_col]).size().reset_index(name="count")
+        st.markdown("#### G2 Grade vs Absences by Risk")
+        if {"G2", "absences"}.issubset(df.columns) and risk_col:
+            fig3 = px.scatter(
+                df, x="absences", y="G2",
+                color=risk_col, category_orders={risk_col: RISK_ORDER},
+                color_discrete_map=RISK_COLORS, opacity=0.65,
+                hover_data=[c for c in ["student_id", "G1", "failures", "risk_score"] if c in df.columns],
+                labels={"absences": "Absences", "G2": "Second Period Grade"},
             )
-            fig3 = px.bar(
-                fail_df, x="failures", y="count", color=risk_col,
-                category_orders={risk_col: RISK_ORDER},
-                color_discrete_map=RISK_COLORS, barmode="stack",
-                labels={"failures": "Prior Class Failures", "count": "Students"},
-            )
+            fig3.add_hline(y=10, line_dash="dot", line_color="#94a3b8",
+                           annotation_text="Passing (G2 = 10)", annotation_position="bottom right")
+            fig3.update_traces(marker=dict(size=8, line=dict(width=0.5, color="white")))
             fig3.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10),
                                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                                legend_title_text="Risk")
             st.plotly_chart(fig3, use_container_width=True)
         else:
-            st.info("failures column unavailable")
+            st.info("G2 / absences unavailable")
 
 with chart_col4:
     with st.container(border=True):
