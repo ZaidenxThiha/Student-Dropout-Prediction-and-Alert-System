@@ -99,9 +99,11 @@ with r1_left:
         st.markdown("#### Academic Risk Distribution")
         if show_academic and "risk_level" in perf_filt.columns and not perf_filt.empty:
             a_counts = perf_filt["risk_level"].astype(str).value_counts()
+            a_names = list(a_counts.index)
             fig_ap = px.pie(
-                values=a_counts.values, names=a_counts.index, hole=0.55,
-                color=a_counts.index, color_discrete_map=RISK_COLORS,
+                values=list(a_counts.values), names=a_names, hole=0.55,
+                color=a_names, color_discrete_map=RISK_COLORS,
+                category_orders={"names": ["High", "Medium", "Low"]},
             )
             fig_ap.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
@@ -114,9 +116,11 @@ with r1_right:
         st.markdown("#### Dropout Risk Distribution")
         if show_dropout and "Dropout_Risk_Level" in drop_filt.columns and not drop_filt.empty:
             counts = drop_filt["Dropout_Risk_Level"].astype(str).value_counts()
+            d_names = list(counts.index)
             fig = px.pie(
-                values=counts.values, names=counts.index, hole=0.55,
-                color=counts.index, color_discrete_map=RISK_COLORS,
+                values=list(counts.values), names=d_names, hole=0.55,
+                color=d_names, color_discrete_map=RISK_COLORS,
+                category_orders={"names": ["High", "Medium", "Low"]},
             )
             fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
