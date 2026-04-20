@@ -64,161 +64,190 @@ drop_med   = int((drop_filt["Dropout_Risk_Level"].astype(str) == "Medium").sum()
 perf_high  = int((perf_filt["risk_level"].astype(str) == "High").sum()) if "risk_level" in perf_filt.columns else 0
 perf_med   = int((perf_filt["risk_level"].astype(str) == "Medium").sum()) if "risk_level" in perf_filt.columns else 0
 
-if show_academic:
-    st.markdown("##### Academic Model — UCI Dataset")
-    ak1, ak2, ak3 = st.columns(3)
-    ak1.metric("Total Students", f"{len(perf_filt):,}")
-    ak2.metric("High Risk", f"{perf_high:,}", delta=f"{perf_high/max(len(perf_filt),1):.0%}", delta_color="inverse")
-    ak3.metric("Medium Risk", f"{perf_med:,}")
+RISK_COLORS = {"High": "#dc2626", "Medium": "#f59e0b", "Low": "#16a34a"}
 
-if show_dropout:
+# ─── KPI Row ──────────────────────────────────────────────────────────────────
+LEFT, RIGHT = st.columns(2)
+
+with LEFT:
+    st.markdown("##### Academic Model — UCI Dataset")
+    if show_academic:
+        ak1, ak2, ak3 = st.columns(3)
+        ak1.metric("Total Students", f"{len(perf_filt):,}")
+        ak2.metric("High Risk", f"{perf_high:,}", delta=f"{perf_high/max(len(perf_filt),1):.0%}", delta_color="inverse")
+        ak3.metric("Medium Risk", f"{perf_med:,}")
+    else:
+        st.caption("Hidden by dataset filter")
+
+with RIGHT:
     st.markdown("##### Dropout Model — OULA Dataset")
-    dk1, dk2, dk3 = st.columns(3)
-    dk1.metric("Total Students", f"{len(drop_filt):,}")
-    dk2.metric("High Risk", f"{drop_high:,}", delta=f"{drop_high/max(len(drop_filt),1):.0%}", delta_color="inverse")
-    dk3.metric("Medium Risk", f"{drop_med:,}")
+    if show_dropout:
+        dk1, dk2, dk3 = st.columns(3)
+        dk1.metric("Total Students", f"{len(drop_filt):,}")
+        dk2.metric("High Risk", f"{drop_high:,}", delta=f"{drop_high/max(len(drop_filt),1):.0%}", delta_color="inverse")
+        dk3.metric("Medium Risk", f"{drop_med:,}")
+    else:
+        st.caption("Hidden by dataset filter")
 
 st.divider()
 
-# ─── Row 1: Donut + Bar by Module (dropout-only) ──────────────────────────────
-if show_dropout:
-    col1, col2 = st.columns(2)
+# ─── Row 1: Risk Distribution Donuts (academic left / dropout right) ─────────
+r1_left, r1_right = st.columns(2)
 
-    with col1:
-        with st.container(border=True):
-            st.markdown("#### Dropout Risk Distribution")
-            if "Dropout_Risk_Level" in drop_filt.columns and not drop_filt.empty:
-                counts = drop_filt["Dropout_Risk_Level"].astype(str).value_counts()
-                fig = px.pie(
-                    values=counts.values,
-                    names=counts.index,
-                    hole=0.55,
-                    color=counts.index,
-                    color_discrete_map={"High": "#dc2626", "Medium": "#ca8a04", "Low": "#16a34a"},
-                )
-                fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                                  showlegend=True, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Dropout data unavailable")
-
-    with col2:
-        with st.container(border=True):
-            st.markdown("#### Dropout Risk by Course Module")
-            if "code_module" in drop_filt.columns and "Dropout_Risk_Level" in drop_filt.columns and not drop_filt.empty:
-                mod_risk = (
-                    drop_filt.groupby(["code_module", "Dropout_Risk_Level"])
-                    .size().reset_index(name="count")
-                )
-                fig2 = px.bar(
-                    mod_risk, x="code_module", y="count", color="Dropout_Risk_Level",
-                    barmode="stack",
-                    color_discrete_map={"High": "#dc2626", "Medium": "#f59e0b", "Low": "#16a34a"},
-                )
-                fig2.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                                   xaxis_title="Module", yaxis_title="Students",
-                                   plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig2, use_container_width=True)
-            else:
-                st.info("Module data unavailable")
-
-# ─── Row 1b: Academic Risk Distribution + G1 vs G2 Scatter (academic-only) ────
-if show_academic:
-    ac1, ac2 = st.columns(2)
-
-    with ac1:
-        with st.container(border=True):
-            st.markdown("#### Academic Risk Distribution")
-            if "risk_level" in perf_filt.columns and not perf_filt.empty:
-                a_counts = perf_filt["risk_level"].astype(str).value_counts()
-                fig_ap = px.pie(
-                    values=a_counts.values,
-                    names=a_counts.index,
-                    hole=0.55,
-                    color=a_counts.index,
-                    color_discrete_map={"High": "#dc2626", "Medium": "#ca8a04", "Low": "#16a34a"},
-                )
-                fig_ap.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                                     showlegend=True, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_ap, use_container_width=True)
-            else:
-                st.info("Academic data unavailable")
-
-    with ac2:
-        with st.container(border=True):
-            st.markdown("#### Grade Trajectory (G1 → G2) by Risk Level")
-            needed = {"G1", "G2", "risk_level"}
-            if needed.issubset(perf_filt.columns) and not perf_filt.empty:
-                fig_ag = px.scatter(
-                    perf_filt, x="G1", y="G2", color="risk_level",
-                    color_discrete_map={"High": "#dc2626", "Medium": "#f59e0b", "Low": "#16a34a"},
-                    opacity=0.7,
-                    hover_data=[c for c in ["student_id", "failures", "absences"] if c in perf_filt.columns],
-                    labels={"G1": "First Period Grade (G1)", "G2": "Second Period Grade (G2)"},
-                )
-                fig_ag.update_traces(marker=dict(size=8, line=dict(width=0.5, color="white")))
-                fig_ag.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                                     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                                     legend_title_text="Risk")
-                st.plotly_chart(fig_ag, use_container_width=True)
-            else:
-                st.info("G1/G2 grade data unavailable")
-
-# ─── Row 2: SHAP Importance + Probability Histogram ────────────────────────────
-col3, col4 = st.columns(2)
-
-with col3:
+with r1_left:
     with st.container(border=True):
-        st.markdown("#### Top Risk Factors (Frequency)")
-        factors_series: list[str] = []
-        for col_name in ["Primary_Risk_Factors"]:
-            for df_src in [drop_filt, perf_filt]:
-                if col_name in df_src.columns:
-                    for val in df_src[col_name].dropna().astype(str):
-                        for f in val.split("|"):
-                            f = f.strip()
-                            if f and f.upper() != "N/A":
-                                factors_series.append(f)
-
-        if factors_series:
-            factor_counts = pd.Series(factors_series).value_counts().head(10)
-            fig3 = px.bar(
-                x=factor_counts.values, y=factor_counts.index,
-                orientation="h", color=factor_counts.values,
-                color_continuous_scale="Reds",
-                labels={"x": "Count", "y": "Factor"},
+        st.markdown("#### Academic Risk Distribution")
+        if show_academic and "risk_level" in perf_filt.columns and not perf_filt.empty:
+            a_counts = perf_filt["risk_level"].astype(str).value_counts()
+            fig_ap = px.pie(
+                values=a_counts.values, names=a_counts.index, hole=0.55,
+                color=a_counts.index, color_discrete_map=RISK_COLORS,
             )
-            fig3.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                               showlegend=False, coloraxis_showscale=False,
-                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig3, use_container_width=True)
+            fig_ap.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_ap, use_container_width=True)
         else:
-            st.info("No risk factor data available")
+            st.info("Academic data unavailable")
 
-with col4:
+with r1_right:
     with st.container(border=True):
-        st.markdown("#### Risk Probability Distribution")
-        if "Risk_Probability_Value" in drop_filt.columns and not drop_filt.empty:
-            fig4 = px.histogram(
-                drop_filt, x="Risk_Probability_Value", nbins=40,
-                color_discrete_sequence=["#6366f1"],
-                labels={"Risk_Probability_Value": "Dropout Probability"},
+        st.markdown("#### Dropout Risk Distribution")
+        if show_dropout and "Dropout_Risk_Level" in drop_filt.columns and not drop_filt.empty:
+            counts = drop_filt["Dropout_Risk_Level"].astype(str).value_counts()
+            fig = px.pie(
+                values=counts.values, names=counts.index, hole=0.55,
+                color=counts.index, color_discrete_map=RISK_COLORS,
             )
-            fig4.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                               yaxis_title="Count",
+            fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                              plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Dropout data unavailable")
+
+# ─── Row 2: Grade Trajectory (academic) vs Risk by Module (dropout) ──────────
+r2_left, r2_right = st.columns(2)
+
+with r2_left:
+    with st.container(border=True):
+        st.markdown("#### Grade Trajectory (G1 → G2) by Risk Level")
+        needed = {"G1", "G2", "risk_level"}
+        if show_academic and needed.issubset(perf_filt.columns) and not perf_filt.empty:
+            fig_ag = px.scatter(
+                perf_filt, x="G1", y="G2", color="risk_level",
+                color_discrete_map=RISK_COLORS, opacity=0.7,
+                hover_data=[c for c in ["student_id", "failures", "absences"] if c in perf_filt.columns],
+                labels={"G1": "First Period Grade (G1)", "G2": "Second Period Grade (G2)"},
+            )
+            fig_ag.update_traces(marker=dict(size=8, line=dict(width=0.5, color="white")))
+            fig_ag.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                 legend_title_text="Risk")
+            st.plotly_chart(fig_ag, use_container_width=True)
+        else:
+            st.info("G1/G2 grade data unavailable")
+
+with r2_right:
+    with st.container(border=True):
+        st.markdown("#### Dropout Risk by Course Module")
+        if show_dropout and {"code_module", "Dropout_Risk_Level"}.issubset(drop_filt.columns) and not drop_filt.empty:
+            mod_risk = (
+                drop_filt.groupby(["code_module", "Dropout_Risk_Level"])
+                .size().reset_index(name="count")
+            )
+            fig2 = px.bar(
+                mod_risk, x="code_module", y="count", color="Dropout_Risk_Level",
+                barmode="stack", color_discrete_map=RISK_COLORS,
+            )
+            fig2.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                               xaxis_title="Module", yaxis_title="Students",
                                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig4, use_container_width=True)
-        elif "risk_score" in perf_filt.columns and not perf_filt.empty:
-            fig4 = px.histogram(
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("Module data unavailable")
+
+# ─── Row 3: Probability Histograms (academic left / dropout right) ───────────
+r3_left, r3_right = st.columns(2)
+
+with r3_left:
+    with st.container(border=True):
+        st.markdown("#### Academic Fail Probability Distribution")
+        if show_academic and "risk_score" in perf_filt.columns and not perf_filt.empty:
+            fig_h1 = px.histogram(
                 perf_filt, x="risk_score", nbins=30,
                 color_discrete_sequence=["#6366f1"],
                 labels={"risk_score": "Academic Fail Probability"},
             )
-            fig4.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
-                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig4, use_container_width=True)
+            fig_h1.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_h1, use_container_width=True)
         else:
-            st.info("Probability data unavailable")
+            st.info("Academic probability unavailable")
+
+with r3_right:
+    with st.container(border=True):
+        st.markdown("#### Dropout Probability Distribution")
+        if show_dropout and "Risk_Probability_Value" in drop_filt.columns and not drop_filt.empty:
+            fig_h2 = px.histogram(
+                drop_filt, x="Risk_Probability_Value", nbins=40,
+                color_discrete_sequence=["#6366f1"],
+                labels={"Risk_Probability_Value": "Dropout Probability"},
+            )
+            fig_h2.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                 yaxis_title="Count",
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_h2, use_container_width=True)
+        else:
+            st.info("Dropout probability unavailable")
+
+# ─── Row 4: Top Risk Factors — split by model ────────────────────────────────
+def _collect_factors(df_src: pd.DataFrame) -> list[str]:
+    out: list[str] = []
+    if "Primary_Risk_Factors" not in df_src.columns:
+        return out
+    for val in df_src["Primary_Risk_Factors"].dropna().astype(str):
+        for f in val.split("|"):
+            f = f.strip()
+            if f and f.upper() != "N/A":
+                out.append(f)
+    return out
+
+r4_left, r4_right = st.columns(2)
+
+with r4_left:
+    with st.container(border=True):
+        st.markdown("#### Top Academic Risk Factors")
+        ac_factors = _collect_factors(perf_filt) if show_academic else []
+        if ac_factors:
+            fc = pd.Series(ac_factors).value_counts().head(10)
+            fig_f1 = px.bar(
+                x=fc.values, y=fc.index, orientation="h",
+                color=fc.values, color_continuous_scale="Reds",
+                labels={"x": "Count", "y": "Factor"},
+            )
+            fig_f1.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                 showlegend=False, coloraxis_showscale=False,
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_f1, use_container_width=True)
+        else:
+            st.info("No academic risk factor data")
+
+with r4_right:
+    with st.container(border=True):
+        st.markdown("#### Top Dropout Risk Factors")
+        dr_factors = _collect_factors(drop_filt) if show_dropout else []
+        if dr_factors:
+            fc = pd.Series(dr_factors).value_counts().head(10)
+            fig_f2 = px.bar(
+                x=fc.values, y=fc.index, orientation="h",
+                color=fc.values, color_continuous_scale="Reds",
+                labels={"x": "Count", "y": "Factor"},
+            )
+            fig_f2.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
+                                 showlegend=False, coloraxis_showscale=False,
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_f2, use_container_width=True)
+        else:
+            st.info("No dropout risk factor data")
 
 # ─── Top 20 High-Risk Students Tables ─────────────────────────────────────────
 def color_risk(val):
