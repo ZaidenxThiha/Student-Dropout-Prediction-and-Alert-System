@@ -29,8 +29,8 @@ high_risk_count = int((drop_df["Dropout_Risk_Level"].astype(str) == "High").sum(
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total Monitored", f"{len(drop_df):,}")
 k2.metric("High Risk", f"{high_risk_count:,}")
-k3.metric("Model Recall", f"{metrics.get('recall', 0.827):.1%}")
-k4.metric("Model Precision", f"{metrics.get('precision', 0.727):.1%}")
+k3.metric("Model Recall", f"{metrics.get('recall', 0.8303):.1%}")
+k4.metric("Model Precision", f"{metrics.get('precision', 0.7311):.1%}")
 
 # ─── Sidebar Filters ──────────────────────────────────────────────────────────
 with st.sidebar:

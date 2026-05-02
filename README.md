@@ -132,14 +132,20 @@ Risk thresholds (configurable in `config/model_config.json`):
 | Medium | risk score >= 0.50 |
 | Low | risk score < 0.50 |
 
+Evaluated metrics (20% holdout, stratified split):
+
+| Accuracy | Precision | Recall | F1 | AUC |
+|----------|-----------|--------|----|-----|
+| 0.904 | 0.955 | 0.920 | 0.938 | 0.956 |
+
 ### Dropout Risk Model
 
-- Algorithm: XGBoost classifier (optimized)
+- Algorithm: XGBoost classifier (optimized — 500 trees, early stopping, tuned regularisation)
 - Training data: OULA Virtual Learning Environment dataset
 - Prediction window: first 40 days of course engagement
 - Target: dropout / non-dropout (binary)
 - Saved artifact: `models/dropout/dropout_xgb_optimized.joblib`
-- Key features: total VLE clicks, active days, relative engagement, average assessment score, submission lateness, prior attempts, studied credits
+- Features (15 total): total VLE clicks, active days, clicks per day, relative engagement, average assessment score, submission lateness, prior attempts, studied credits, deprivation band (IMD), highest education, age band, gender, disability, low engagement × low score interaction
 
 Risk thresholds (configurable in `config/model_config.json`):
 
@@ -149,7 +155,11 @@ Risk thresholds (configurable in `config/model_config.json`):
 | Medium | probability >= 0.36 |
 | Low | probability < 0.36 |
 
-Reported metrics: Precision 0.727 | Recall 0.827 | F1 0.774 | AUC 0.843
+Evaluated metrics (20% holdout, stratified split):
+
+| Accuracy | Precision | Recall | F1 | AUC |
+|----------|-----------|--------|----|-----|
+| 0.749 | 0.731 | 0.830 | 0.778 | 0.851 |
 
 ## Student Profile and Parent Notifications
 
@@ -179,7 +189,7 @@ For the academic model, the sklearn Pipeline is unwrapped before SHAP computatio
         "model_path_fallback": "models/dropout/oula_ews_model.pkl",
         "threshold": 0.36,
         "risk_levels": { "high": 0.51, "medium": 0.36 },
-        "metrics": { "precision": 0.727, "recall": 0.827, "f1": 0.774, "auc": 0.843 }
+        "metrics": { "precision": 0.7311, "recall": 0.8303, "f1": 0.7776, "auc": 0.8507, "accuracy": 0.7492 }
     }
 }
 ```
