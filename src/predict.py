@@ -35,14 +35,13 @@ def load_model(model_path: Optional[Path] = None):
 
 
 def load_dropout_model(model_path: Optional[Path] = None):
-    """Load the trained dropout XGBoost model."""
+    """Load the trained dropout XGBoost model, respecting config path with fallback."""
+    base = Path(__file__).resolve().parent.parent
     if model_path is None:
-        model_path = (
-            Path(__file__).resolve().parent.parent
-            / "models"
-            / "dropout"
-            / "oula_ews_model.pkl"
-        )
+        cfg = _load_config()
+        primary = base / cfg.get("dropout", {}).get("model_path", "models/dropout/dropout_xgb_optimized.joblib")
+        fallback = base / cfg.get("dropout", {}).get("model_path_fallback", "models/dropout/oula_ews_model.pkl")
+        model_path = primary if primary.exists() else fallback
     return load(model_path)
 
 
@@ -246,12 +245,49 @@ def load_combined_performance_data(base_dir: Path) -> pd.DataFrame:
     return combined_df
 
 
+def _engineer_dropout_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute derived features expected by the retrained dropout model."""
+    df = df.copy()
+
+    imd_order = ["?", "0-10%", "10-20", "20-30%", "30-40%", "40-50%",
+                 "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"]
+    edu_order = ["No Formal quals", "Lower Than A Level", "A Level or Equivalent",
+                 "HE Qualification", "Post Graduate Qualification"]
+    age_order = ["0-35", "35-55", "55<="]
+
+    if "imd_band_enc" not in df.columns and "imd_band" in df.columns:
+        df["imd_band_enc"] = df["imd_band"].map(
+            {v: i for i, v in enumerate(imd_order)}
+        ).fillna(0)
+    if "education_enc" not in df.columns and "highest_education" in df.columns:
+        df["education_enc"] = df["highest_education"].map(
+            {v: i for i, v in enumerate(edu_order)}
+        ).fillna(0)
+    if "age_enc" not in df.columns and "age_band" in df.columns:
+        df["age_enc"] = df["age_band"].map(
+            {v: i for i, v in enumerate(age_order)}
+        ).fillna(0)
+    if "is_female" not in df.columns and "gender" in df.columns:
+        df["is_female"] = (df["gender"] == "F").astype(int)
+    if "has_disability" not in df.columns and "disability" in df.columns:
+        df["has_disability"] = (df["disability"] == "Y").astype(int)
+    if "clicks_per_day" not in df.columns:
+        df["clicks_per_day"] = df["total_clicks"] / (df.get("active_days", pd.Series(0, index=df.index)) + 1)
+    if "low_engage_fail" not in df.columns:
+        df["low_engage_fail"] = (
+            (df.get("relative_engagement", 0) < 0) & (df.get("avg_score", 0) < 50)
+        ).astype(int)
+
+    return df
+
+
 def load_dropout_inputs(base_dir: Path) -> tuple[pd.DataFrame, pd.Series]:
     """Load dropout data and student ids for the new XGBoost pipeline."""
     processed_dir = base_dir / "data" / "processed" / "dropout"
     preprocessed_path = processed_dir / "dropout_preprocessed.csv"
     if preprocessed_path.exists():
         df = pd.read_csv(preprocessed_path)
+        df = _engineer_dropout_features(df)
         student_ids = df["id_student"] if "id_student" in df.columns else pd.Series(range(1, len(df) + 1))
         return df, student_ids
 

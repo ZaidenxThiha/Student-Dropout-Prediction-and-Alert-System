@@ -24,6 +24,10 @@ PERFORMANCE_FEATURES = [
 DROPOUT_FEATURES = [
     "total_clicks", "active_days", "relative_engagement",
     "avg_score", "avg_lateness", "num_of_prev_attempts", "studied_credits",
+    "avg_clicks_per_day", "clicks_per_day",
+    "imd_band_enc", "education_enc", "age_enc",
+    "is_female", "has_disability",
+    "low_engage_fail",
 ]
 
 
@@ -73,13 +77,41 @@ def load_dropout_data() -> pd.DataFrame:
     return pd.read_csv(preprocessed)
 
 
+def _engineer_dropout_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute derived features added by the retrained dropout model."""
+    df = df.copy()
+    imd_order = ["?", "0-10%", "10-20", "20-30%", "30-40%", "40-50%",
+                 "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"]
+    edu_order = ["No Formal quals", "Lower Than A Level", "A Level or Equivalent",
+                 "HE Qualification", "Post Graduate Qualification"]
+    age_order = ["0-35", "35-55", "55<="]
+    if "imd_band_enc" not in df.columns and "imd_band" in df.columns:
+        df["imd_band_enc"] = df["imd_band"].map({v: i for i, v in enumerate(imd_order)}).fillna(0)
+    if "education_enc" not in df.columns and "highest_education" in df.columns:
+        df["education_enc"] = df["highest_education"].map({v: i for i, v in enumerate(edu_order)}).fillna(0)
+    if "age_enc" not in df.columns and "age_band" in df.columns:
+        df["age_enc"] = df["age_band"].map({v: i for i, v in enumerate(age_order)}).fillna(0)
+    if "is_female" not in df.columns and "gender" in df.columns:
+        df["is_female"] = (df["gender"] == "F").astype(int)
+    if "has_disability" not in df.columns and "disability" in df.columns:
+        df["has_disability"] = (df["disability"] == "Y").astype(int)
+    if "clicks_per_day" not in df.columns:
+        df["clicks_per_day"] = df["total_clicks"] / (df.get("active_days", pd.Series(0, index=df.index)) + 1)
+    if "low_engage_fail" not in df.columns:
+        df["low_engage_fail"] = (
+            (df.get("relative_engagement", pd.Series(0, index=df.index)) < 0) &
+            (df.get("avg_score", pd.Series(100, index=df.index)) < 50)
+        ).astype(int)
+    return df
+
+
 @st.cache_data
 def load_dropout_preprocessed() -> pd.DataFrame:
     """Load the engineered feature set used to train the dropout model."""
     path = BASE_DIR / "data" / "processed" / "dropout" / "dropout_preprocessed.csv"
     if not path.exists():
         return pd.DataFrame()
-    return pd.read_csv(path)
+    return _engineer_dropout_features(pd.read_csv(path))
 
 
 @st.cache_data

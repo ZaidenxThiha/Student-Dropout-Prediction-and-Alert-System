@@ -157,10 +157,26 @@ with tabs[3]:
             total_clicks = st.slider("Total VLE Clicks", 0, 2000, int(defaults["total_clicks"]))
             active_days = st.slider("Active Days", 0, 100, int(defaults["active_days"]))
             avg_score = st.slider("Avg Assessment Score", 0.0, 100.0, float(defaults["avg_score"]))
+            num_prev = st.slider("Prior Attempts", 0, 5, int(defaults["num_of_prev_attempts"]))
         with scol2:
             avg_lateness = st.slider("Avg Submission Lateness (days)", -30.0, 30.0, float(defaults["avg_lateness"]))
-            num_prev = st.slider("Prior Attempts", 0, 5, int(defaults["num_of_prev_attempts"]))
             studied_credits = st.slider("Studied Credits", 30, 240, int(defaults["studied_credits"]))
+            highest_education = st.selectbox("Highest Education", [
+                "No Formal quals", "Lower Than A Level", "A Level or Equivalent",
+                "HE Qualification", "Post Graduate Qualification"
+            ], index=2)
+            age_band = st.selectbox("Age Band", ["0-35", "35-55", "55<="], index=0)
+
+        dcol1, dcol2, dcol3 = st.columns(3)
+        with dcol1:
+            imd_band = st.selectbox("Deprivation Band (IMD)", [
+                "0-10%", "10-20", "20-30%", "30-40%", "40-50%",
+                "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"
+            ], index=5)
+        with dcol2:
+            gender = st.selectbox("Gender", ["M", "F"], index=0)
+        with dcol3:
+            disability = st.selectbox("Disability", ["N", "Y"], index=0)
 
         mean_clicks = pop_stats.get("total_clicks", {}).get("mean", 150)
         relative_engagement = (total_clicks - mean_clicks) / max(mean_clicks, 1)
@@ -173,6 +189,12 @@ with tabs[3]:
             "avg_lateness": avg_lateness,
             "num_of_prev_attempts": num_prev,
             "studied_credits": studied_credits,
+            "avg_clicks_per_day": total_clicks / max(active_days, 1),
+            "highest_education": highest_education,
+            "imd_band": imd_band,
+            "age_band": age_band,
+            "gender": gender,
+            "disability": disability,
         }
     else:
         pop_stats = get_population_stats("performance")

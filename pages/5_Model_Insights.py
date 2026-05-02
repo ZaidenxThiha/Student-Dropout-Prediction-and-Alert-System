@@ -60,11 +60,11 @@ with st.container(border=True):
     st.markdown("#### Model Comparison")
     metrics_data = {
         "Model": ["Academic (Random Forest)", "Dropout (XGBoost — Optimized)"],
-        "Accuracy": ["~0.82", "~0.80"],
-        "Precision": ["~0.83", f"{config['dropout'].get('metrics', {}).get('precision', 0.727):.3f}"],
-        "Recall": ["~0.87", f"{config['dropout'].get('metrics', {}).get('recall', 0.827):.3f}"],
-        "F1": ["~0.85", f"{config['dropout'].get('metrics', {}).get('f1', 0.774):.3f}"],
-        "AUC": ["~0.89", f"{config['dropout'].get('metrics', {}).get('auc', 0.843):.3f}"],
+        "Accuracy": ["0.904", "0.749"],
+        "Precision": ["0.955", "0.731"],
+        "Recall": ["0.920", "0.830"],
+        "F1": ["0.938", "0.778"],
+        "AUC": ["0.956", "0.851"],
         "Dataset": ["UCI Student Performance", "OULA Virtual Learning"],
         "Threshold": [config["performance"].get("threshold", 0.5), config["dropout"].get("threshold", 0.36)],
     }

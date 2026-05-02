@@ -76,6 +76,41 @@ def get_risk_level(probability: float, model_type: str) -> str:
     return "Low"
 
 
+def _engineer_dropout_row(row: pd.DataFrame) -> pd.DataFrame:
+    """Compute derived dropout features for a single-row DataFrame."""
+    row = row.copy()
+    imd_order = ["?", "0-10%", "10-20", "20-30%", "30-40%", "40-50%",
+                 "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"]
+    edu_order = ["No Formal quals", "Lower Than A Level", "A Level or Equivalent",
+                 "HE Qualification", "Post Graduate Qualification"]
+    age_order = ["0-35", "35-55", "55<="]
+    if "imd_band_enc" not in row.columns:
+        row["imd_band_enc"] = row.get("imd_band", pd.Series(["?"])).map(
+            {v: i for i, v in enumerate(imd_order)}
+        ).fillna(0)
+    if "education_enc" not in row.columns:
+        row["education_enc"] = row.get("highest_education", pd.Series(["No Formal quals"])).map(
+            {v: i for i, v in enumerate(edu_order)}
+        ).fillna(0)
+    if "age_enc" not in row.columns:
+        row["age_enc"] = row.get("age_band", pd.Series(["0-35"])).map(
+            {v: i for i, v in enumerate(age_order)}
+        ).fillna(0)
+    if "is_female" not in row.columns:
+        row["is_female"] = (row.get("gender", pd.Series(["M"])) == "F").astype(int)
+    if "has_disability" not in row.columns:
+        row["has_disability"] = (row.get("disability", pd.Series(["N"])) == "Y").astype(int)
+    if "clicks_per_day" not in row.columns:
+        total = float(row["total_clicks"].iloc[0]) if "total_clicks" in row.columns else 0
+        days = float(row["active_days"].iloc[0]) if "active_days" in row.columns else 0
+        row["clicks_per_day"] = total / (days + 1)
+    if "low_engage_fail" not in row.columns:
+        rel_eng = float(row.get("relative_engagement", pd.Series([0])).iloc[0])
+        score = float(row.get("avg_score", pd.Series([100])).iloc[0])
+        row["low_engage_fail"] = int(rel_eng < 0 and score < 50)
+    return row
+
+
 def predict_single(student_data: dict, model_type: str) -> dict:
     """Predict for a single student. Returns prediction, probability, risk_level."""
     model = load_model(model_type)
@@ -100,10 +135,11 @@ def predict_single(student_data: dict, model_type: str) -> dict:
                 "risk_level": get_risk_level(prob_fail, model_type),
             }
         else:
-            feat_row = row[features] if features else row
+            row = _engineer_dropout_row(row)
+            feat_row = row[features].fillna(0) if features else row
             prob_at_risk = float(model.predict_proba(feat_row)[0][1])
             config = _load_config()
-            threshold = config["dropout"].get("threshold", 0.42)
+            threshold = config["dropout"].get("threshold", 0.36)
             pred = "At-Risk" if prob_at_risk >= threshold else "On-Track"
             return {
                 "prediction": pred,
