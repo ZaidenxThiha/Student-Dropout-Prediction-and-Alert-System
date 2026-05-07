@@ -45,8 +45,31 @@ def load_dropout_model(model_path: Optional[Path] = None):
     return load(model_path)
 
 
-def load_dropout_features(path: Optional[Path] = None) -> list[str]:
-    """Load the ordered dropout feature list expected by the saved model."""
+def _model_feature_names(model) -> list[str]:
+    """Return feature names recorded by the trained estimator, when available."""
+    if model is None:
+        return []
+
+    try:
+        booster = model.get_booster()
+        if booster.feature_names:
+            return list(booster.feature_names)
+    except Exception:
+        pass
+
+    names = getattr(model, "feature_names_in_", None)
+    if names is not None:
+        return list(names)
+
+    return []
+
+
+def load_dropout_features(path: Optional[Path] = None, model=None) -> list[str]:
+    """Load the ordered dropout feature list expected by the active model."""
+    model_features = _model_feature_names(model)
+    if model_features:
+        return model_features
+
     if path is None:
         path = (
             Path(__file__).resolve().parent.parent
@@ -165,7 +188,7 @@ def predict_dropout_students(
     if model is None:
         model = load_dropout_model()
     if features is None:
-        features = load_dropout_features()
+        features = load_dropout_features(model=model)
 
     missing_features = [feature for feature in features if feature not in df.columns]
     if missing_features:

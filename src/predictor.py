@@ -52,10 +52,34 @@ def load_model(model_type: str):
     raise ValueError(f"Unknown model_type: {model_type}")
 
 
+def _model_feature_names(model) -> list[str]:
+    """Return feature names recorded by the trained estimator, when available."""
+    if model is None:
+        return []
+
+    try:
+        booster = model.get_booster()
+        if booster.feature_names:
+            return list(booster.feature_names)
+    except Exception:
+        pass
+
+    names = getattr(model, "feature_names_in_", None)
+    if names is not None:
+        return list(names)
+
+    return []
+
+
 @st.cache_resource
 def load_dropout_features() -> list[str]:
-    """Load the ordered dropout feature list from saved model_features.pkl."""
+    """Load the ordered dropout feature list expected by the active model."""
     from joblib import load as jload
+
+    model_features = _model_feature_names(load_model("dropout"))
+    if model_features:
+        return model_features
+
     path = BASE_DIR / "models" / "dropout" / "model_features.pkl"
     if path.exists():
         return jload(path)
