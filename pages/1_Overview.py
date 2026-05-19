@@ -66,6 +66,7 @@ perf_high  = int((perf_filt["risk_level"].astype(str) == "High").sum()) if "risk
 perf_med   = int((perf_filt["risk_level"].astype(str) == "Medium").sum()) if "risk_level" in perf_filt.columns else 0
 
 RISK_COLORS = {"High": "#dc2626", "Medium": "#f59e0b", "Low": "#16a34a"}
+RISK_ORDER = ["High", "Medium", "Low"]
 
 # ─── KPI Row ──────────────────────────────────────────────────────────────────
 LEFT, RIGHT = st.columns(2)
@@ -104,7 +105,7 @@ with r1_left:
             fig_ap = px.pie(
                 values=list(a_counts.values), names=a_names, hole=0.55,
                 color=a_names, color_discrete_map=RISK_COLORS,
-                category_orders={"names": ["High", "Medium", "Low"]},
+                category_orders={"names": RISK_ORDER},
             )
             fig_ap.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
@@ -121,7 +122,7 @@ with r1_right:
             fig = px.pie(
                 values=list(counts.values), names=d_names, hole=0.55,
                 color=d_names, color_discrete_map=RISK_COLORS,
-                category_orders={"names": ["High", "Medium", "Low"]},
+                category_orders={"names": RISK_ORDER},
             )
             fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
@@ -141,6 +142,7 @@ with r2_left:
                 perf_filt, x="G1", y="G2", color="risk_level",
                 color_discrete_map=RISK_COLORS, opacity=0.7,
                 hover_data=[c for c in ["student_id", "failures", "absences"] if c in perf_filt.columns],
+                category_orders={"risk_level": RISK_ORDER},
                 labels={"G1": "First Period Grade (G1)", "G2": "Second Period Grade (G2)"},
             )
             fig_ag.update_traces(marker=dict(size=8, line=dict(width=0.5, color="white")))
@@ -162,6 +164,7 @@ with r2_right:
             fig2 = px.bar(
                 mod_risk, x="code_module", y="count", color="Dropout_Risk_Level",
                 barmode="stack", color_discrete_map=RISK_COLORS,
+                category_orders={"Dropout_Risk_Level": RISK_ORDER},
             )
             fig2.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280,
                                xaxis_title="Module", yaxis_title="Students",
@@ -181,8 +184,10 @@ with r3_left:
                 perf_filt, x="risk_score", nbins=30,
                 color_discrete_sequence=["#6366f1"],
                 labels={"risk_score": "Academic Fail Probability"},
+                range_x=[0, 1],
             )
             fig_h1.update_layout(margin=dict(t=36, b=10, l=10, r=10), height=320,
+                                 yaxis_title="Count",
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_h1, use_container_width=True)
         else:
@@ -196,6 +201,7 @@ with r3_right:
                 drop_filt, x="Risk_Probability_Value", nbins=40,
                 color_discrete_sequence=["#6366f1"],
                 labels={"Risk_Probability_Value": "Dropout Probability"},
+                range_x=[0, 1],
             )
             fig_h2.update_layout(margin=dict(t=20, b=20, l=10, r=10), height=340,
                                  yaxis_title="Count",
