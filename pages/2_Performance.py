@@ -43,6 +43,20 @@ if perf_precision is not None:
 st.divider()
 RISK_COLORS = {"High": "#dc2626", "Medium": "#f59e0b", "Low": "#16a34a"}
 RISK_ORDER = ["Low", "Medium", "High"]
+IMPORTANCE_LABELS = {
+    "G2": "Second-period grade (G2)",
+    "G1": "First-period grade (G1)",
+    "failures": "Prior class failures",
+    "absences": "Absences",
+    "dataset_math": "Math dataset",
+    "dataset_portuguese": "Portuguese dataset",
+    "higher_no": "No higher-education intention",
+    "higher_yes": "Higher-education intention",
+    "goout": "Going-out frequency",
+    "age": "Age",
+    "Medu": "Mother's education",
+    "freetime": "Free time",
+}
 
 chart_col1, chart_col2 = st.columns(2)
 
@@ -54,7 +68,9 @@ with chart_col1:
                 df, x="risk_score", nbins=30,
                 color=risk_col if risk_col else None,
                 color_discrete_map=RISK_COLORS,
+                category_orders={risk_col: ["High", "Medium", "Low"]} if risk_col else None,
                 labels={"risk_score": "Fail Probability"},
+                range_x=[0, 1],
             )
             fig.add_vline(x=0.50, line_dash="dash", line_color="#f59e0b",
                           annotation_text="Medium ≥ 0.50", annotation_position="top")
@@ -75,9 +91,10 @@ with chart_col2:
                 df, x="G1", y="G2",
                 color=risk_col if risk_col else None,
                 color_discrete_map=RISK_COLORS,
+                category_orders={risk_col: ["High", "Medium", "Low"]} if risk_col else None,
                 opacity=0.65,
                 hover_data=[c for c in ["student_id", "failures", "absences", "risk_score"] if c in df.columns],
-                labels={"G1": "First Period Grade", "G2": "Second Period Grade"},
+                labels={"G1": "First Period Grade (G1)", "G2": "Second Period Grade (G2)"},
             )
             g_max = float(max(df["G1"].max(), df["G2"].max()))
             fig2.add_shape(type="line", x0=0, y0=0, x1=g_max, y1=g_max,
@@ -176,6 +193,8 @@ with bottom_col2:
                         importances = rf.feature_importances_
                         imp_df = pd.DataFrame({"feature": [f"feature_{i}" for i in range(len(importances))], "importance": importances})
                         imp_df = imp_df.sort_values("importance", ascending=False).head(12)
+                    imp_df["feature"] = imp_df["feature"].map(lambda x: IMPORTANCE_LABELS.get(x, x.replace("_", " ").title()))
+                    imp_df = imp_df.sort_values("importance", ascending=True)
 
                     fig3 = px.bar(
                         imp_df, x="importance", y="feature", orientation="h",
