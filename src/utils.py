@@ -11,10 +11,55 @@ RISK_COLORS = {
     "Low": "#10b981",
 }
 
+NON_RISK_FACTOR_LABELS = {
+    "No Major Academic Risk Factors",
+    "Strong Early Engagement Profile",
+}
+
+ACADEMIC_RISK_FACTOR_LABELS = {
+    "Low G2 Score": "Low second-period grade (G2)",
+    "Low G1 Score": "Low first-period grade (G1)",
+    "Prior Class Failures": "Prior class failures",
+    "Low Study Time": "Low study time",
+    "High Absences": "High absences",
+    "High Social Time": "High social time",
+    "High Alcohol Use": "High alcohol use",
+    "Low Higher-Education Intent": "No higher-education intention",
+    "Moderate Academic Risk Pattern": "Moderate academic risk pattern",
+    "Elevated Academic Risk Pattern": "Elevated academic risk pattern",
+}
+
 
 def risk_color(level: str) -> str:
     """Return hex color string for a risk level."""
     return RISK_COLORS.get(level, "#6b7280")
+
+
+def clean_risk_factor_label(label: str, label_map: dict[str, str] | None = None) -> str | None:
+    """Return a display label for a named risk factor, or None for non-risk placeholders."""
+    factor = str(label).strip()
+    if not factor or factor.upper() == "N/A" or factor in NON_RISK_FACTOR_LABELS:
+        return None
+    if label_map:
+        return label_map.get(factor, factor)
+    return factor
+
+
+def collect_primary_risk_factors(
+    df_src: pd.DataFrame,
+    label_map: dict[str, str] | None = None,
+) -> list[str]:
+    """Split Primary_Risk_Factors strings into chart-ready labels."""
+    out: list[str] = []
+    if df_src.empty or "Primary_Risk_Factors" not in df_src.columns:
+        return out
+
+    for val in df_src["Primary_Risk_Factors"].dropna().astype(str):
+        for raw_factor in val.split("|"):
+            factor = clean_risk_factor_label(raw_factor, label_map)
+            if factor:
+                out.append(factor)
+    return out
 
 
 def create_gauge(value: float, title: str = "Risk Score") -> go.Figure:

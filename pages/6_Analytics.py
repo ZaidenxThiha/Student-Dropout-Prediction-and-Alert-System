@@ -11,6 +11,7 @@ from src.data_loader import (
     deduplicate_dropout, get_feature_names, get_population_stats,
 )
 from src.predictor import load_model, load_dropout_features, predict_single
+from src.utils import ACADEMIC_RISK_FACTOR_LABELS, clean_risk_factor_label
 
 st.title("Analytics")
 st.caption("Deep-dive analytics: risk factor analysis, course-level stats, correlations, and What-If simulator")
@@ -40,9 +41,10 @@ with tabs[0]:
         for _, row in df_src.iterrows():
             rl = str(row.get(risk_col, "Unknown"))
             for f in str(row.get("Primary_Risk_Factors", "")).split("|"):
-                f = f.strip()
-                if f and f.upper() != "N/A":
-                    rows.append({"risk_level": rl, "factor": f})
+                label_map = ACADEMIC_RISK_FACTOR_LABELS if label == "Academic" else None
+                factor = clean_risk_factor_label(f, label_map)
+                if factor:
+                    rows.append({"risk_level": rl, "factor": factor})
 
         if rows:
             fdf = pd.DataFrame(rows)

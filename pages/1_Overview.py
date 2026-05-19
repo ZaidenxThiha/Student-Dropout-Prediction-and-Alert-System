@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.data_loader import load_performance_data, load_dropout_data, deduplicate_dropout
+from src.utils import ACADEMIC_RISK_FACTOR_LABELS, collect_primary_risk_factors
 
 st.title("Student Risk System Dashboard")
 st.caption("Two complementary early-warning models monitoring academic failure risk and dropout engagement risk")
@@ -204,23 +205,15 @@ with r3_right:
             st.info("Dropout probability unavailable")
 
 # ─── Row 4: Top Risk Factors — split by model ────────────────────────────────
-def _collect_factors(df_src: pd.DataFrame) -> list[str]:
-    out: list[str] = []
-    if "Primary_Risk_Factors" not in df_src.columns:
-        return out
-    for val in df_src["Primary_Risk_Factors"].dropna().astype(str):
-        for f in val.split("|"):
-            f = f.strip()
-            if f and f.upper() != "N/A":
-                out.append(f)
-    return out
-
 r4_left, r4_right = st.columns(2)
 
 with r4_left:
     with st.container(border=True):
         st.markdown("#### Top Academic Risk Factors")
-        ac_factors = _collect_factors(perf_filt) if show_academic else []
+        ac_factors = collect_primary_risk_factors(
+            perf_filt,
+            label_map=ACADEMIC_RISK_FACTOR_LABELS,
+        ) if show_academic else []
         if ac_factors:
             fc = pd.Series(ac_factors).value_counts().head(10)
             fig_f1 = px.bar(
@@ -233,12 +226,12 @@ with r4_left:
                                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_f1, use_container_width=True)
         else:
-            st.info("No academic risk factor data")
+            st.info("No named academic risk factors in the selected records")
 
 with r4_right:
     with st.container(border=True):
         st.markdown("#### Top Dropout Risk Factors")
-        dr_factors = _collect_factors(drop_filt) if show_dropout else []
+        dr_factors = collect_primary_risk_factors(drop_filt) if show_dropout else []
         if dr_factors:
             fc = pd.Series(dr_factors).value_counts().head(10)
             fig_f2 = px.bar(
